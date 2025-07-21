@@ -1,12 +1,23 @@
 const express = require('express');
 const db = require('../models/database');
-const { authenticateToken } = require('./auth');
+const authenticateToken = require('../middleware/auth');
 const nflApi = require('../services/nflApi');
 
 const router = express.Router();
 
-// Get games for current week
-router.get('/week/:week?', async (req, res) => {
+// Get games for current week (no week specified)
+router.get('/week', async (req, res) => {
+  try {
+    const currentWeek = await getCurrentWeek();
+    return res.redirect(`/api/games/week/${currentWeek}`);
+  } catch (error) {
+    console.error('Error getting current week:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Get games for specific week
+router.get('/week/:week', async (req, res) => {
   try {
     const week = req.params.week || await getCurrentWeek();
     

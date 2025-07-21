@@ -3,8 +3,19 @@ const db = require('../models/database');
 
 const router = express.Router();
 
+// Get current week leaderboard (no week specified)
+router.get('/week', async (req, res) => {
+  try {
+    const currentWeek = await getCurrentWeek();
+    return res.redirect(`/api/leaderboard/week/${currentWeek}`);
+  } catch (error) {
+    console.error('Error getting current week:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // Get weekly leaderboard
-router.get('/week/:week?', async (req, res) => {
+router.get('/week/:week', async (req, res) => {
   try {
     const week = req.params.week || await getCurrentWeek();
 
