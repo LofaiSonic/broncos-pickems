@@ -1,6 +1,9 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import axios from 'axios';
 
+// Configure axios base URL for API calls
+axios.defaults.baseURL = 'http://localhost:5000';
+
 const AuthContext = createContext();
 
 export const useAuth = () => {
@@ -52,7 +55,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   const loginWithReddit = () => {
-    window.location.href = '/api/auth/reddit';
+    window.location.href = 'http://localhost:5000/api/auth/reddit';
   };
 
   const value = {

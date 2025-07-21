@@ -1,12 +1,9 @@
-/* Denver Broncos Theme Variables */
+/* Denver Broncos Official Theme Variables */
 :root {
-  --broncos-orange: #FB4F14;
-  --broncos-blue: #002244;
-  --broncos-light-blue: #0369A1;
+  --broncos-orange: #FA4616;
+  --broncos-blue: #001489;
   --broncos-white: #FFFFFF;
-  --broncos-gray: #6B7280;
-  --broncos-light-gray: #F3F4F6;
-  --broncos-dark-gray: #374151;
+  --broncos-cream: #fdf6e3;
   
   /* Semantic colors */
   --primary: var(--broncos-orange);
@@ -48,9 +45,35 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: var(--broncos-light-gray);
-  color: var(--broncos-dark-gray);
+  background-color: var(--broncos-cream);
+  color: var(--broncos-blue);
   line-height: 1.6;
+}
+
+/* Fix link styling issues */
+a {
+  text-decoration: none;
+}
+
+a:visited {
+  color: inherit;
+}
+
+.no-underline {
+  text-decoration: none !important;
+}
+
+/* Force white text in navigation */
+nav *, nav a, nav button, nav div, nav span {
+  color: white !important;
+}
+
+nav a:visited, nav a:link, nav a:hover, nav a:active {
+  color: white !important;
+}
+
+nav .text-white, nav [class*="text-"] {
+  color: white !important;
 }
 
 code {
@@ -127,12 +150,25 @@ code {
   box-shadow: var(--shadow-sm);
   padding: var(--spacing-lg);
   border: 1px solid #E5E7EB;
+  /* Beveled edge effect */
+  border-top: 2px solid rgba(255, 255, 255, 0.8);
+  border-left: 2px solid rgba(255, 255, 255, 0.8);
+  border-bottom: 2px solid rgba(0, 0, 0, 0.1);
+  border-right: 2px solid rgba(0, 0, 0, 0.1);
 }
 
 .card:hover {
   box-shadow: var(--shadow-md);
   transform: translateY(-2px);
   transition: all 0.2s ease;
+}
+
+/* Beveled button styles */
+.btn-beveled {
+  border-top: 2px solid rgba(255, 255, 255, 0.3);
+  border-left: 2px solid rgba(255, 255, 255, 0.3);
+  border-bottom: 2px solid rgba(0, 0, 0, 0.2);
+  border-right: 2px solid rgba(0, 0, 0, 0.2);
 }
 
 .text-primary {

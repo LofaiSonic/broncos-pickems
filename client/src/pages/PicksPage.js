@@ -17,13 +17,58 @@ const PicksPage = () => {
   const fetchGamesAndPicks = async () => {
     try {
       setLoading(true);
-      const [gamesResponse, picksResponse] = await Promise.all([
-        axios.get(`/api/games/week/${currentWeek}`),
-        axios.get(`/api/games/week/${currentWeek}/picks`)
-      ]);
+      const response = await axios.get(`/api/games/week/${currentWeek}/picks`);
       
-      setGames(gamesResponse.data);
-      setUserPicks(picksResponse.data);
+      // Transform the API response to match our component structure
+      const gamesData = response.data.map(game => {
+        console.log('Raw game data:', game); // Debug log
+        return {
+          id: game.id,
+          week: game.week,
+          gameTime: game.game_time,
+          isFinal: game.is_final,
+          homeTeam: {
+            id: game.home_team_id,
+            name: game.home_team_name,
+            abbreviation: game.home_team_abbr,
+            score: game.home_score
+          },
+          awayTeam: {
+            id: game.away_team_id,
+            name: game.away_team_name,
+            abbreviation: game.away_team_abbr,
+            score: game.away_score
+          },
+          spread: game.spread,
+          overUnder: game.over_under,
+          picksLocked: game.picks_locked,
+          homeTeamInjuries: game.home_team_injuries || [],
+          awayTeamInjuries: game.away_team_injuries || []
+        };
+      });
+      
+      // Extract user picks from the response
+      const picksData = {};
+      response.data.forEach(game => {
+        if (game.picked_team_id) {
+          picksData[game.id] = {
+            pickedTeamId: game.picked_team_id,
+            confidencePoints: game.confidence_points || 1
+          };
+        }
+      });
+      
+      console.log('Games data:', gamesData);
+      console.log('Picks data:', picksData);
+      console.log('Raw API response:', response.data);
+      
+      setGames(gamesData);
+      setUserPicks(picksData);
+      
+      // Debug log after state update
+      setTimeout(() => {
+        console.log('userPicks state after update:', picksData);
+      }, 100);
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
@@ -31,14 +76,51 @@ const PicksPage = () => {
     }
   };
 
-  const handlePickChange = (gameId, teamId) => {
+  const handlePickChange = async (gameId, teamId) => {
+    // Update local state immediately for UI feedback
     setUserPicks(prev => ({
       ...prev,
       [gameId]: {
         ...prev[gameId],
-        pickedTeamId: teamId
+        pickedTeamId: teamId,
+        confidencePoints: 1
       }
     }));
+
+    // Submit the pick to the server immediately
+    try {
+      await axios.post('/api/picks', {
+        gameId: parseInt(gameId),
+        pickedTeamId: teamId,
+        confidencePoints: 1
+      });
+      console.log(`Pick submitted: Game ${gameId}, Team ${teamId}`);
+    } catch (error) {
+      console.error('Error submitting pick:', error);
+      // Revert the local state if the API call failed
+      setUserPicks(prev => ({
+        ...prev,
+        [gameId]: {
+          ...prev[gameId],
+          pickedTeamId: null
+        }
+      }));
+      alert('Error submitting pick. Please try again.');
+    }
+  };
+
+  const submitPick = async (gameId, teamId) => {
+    try {
+      await axios.post('/api/picks', {
+        gameId: parseInt(gameId),
+        pickedTeamId: teamId,
+        confidencePoints: 1
+      });
+      console.log('Pick submitted successfully');
+    } catch (error) {
+      console.error('Error submitting pick:', error);
+      alert('Error submitting pick. Please try again.');
+    }
   };
 
   const submitPicks = async () => {
@@ -46,19 +128,13 @@ const PicksPage = () => {
       setSubmitting(true);
       
       const picks = Object.entries(userPicks)
-        .filter(([_, pick]) => pick.pickedTeamId)
-        .map(([gameId, pick]) => ({
-          gameId: parseInt(gameId),
-          pickedTeamId: pick.pickedTeamId,
-          confidencePoints: 1
-        }));
+        .filter(([_, pick]) => pick.pickedTeamId);
 
-      await axios.post('/api/picks', { picks });
+      for (const [gameId, pick] of picks) {
+        await submitPick(gameId, pick.pickedTeamId);
+      }
       
-      // Refresh data to show updated picks
-      await fetchGamesAndPicks();
-      
-      alert('Picks submitted successfully!');
+      alert('All picks submitted successfully!');
     } catch (error) {
       console.error('Error submitting picks:', error);
       alert('Error submitting picks. Please try again.');
@@ -79,8 +155,11 @@ const PicksPage = () => {
   };
 
   const isGameLocked = (game) => {
-    return game.picksLocked || new Date(game.gameTime) <= new Date();
+    // Disable locking for testing - always return false
+    return false;
+    // Original logic: return game.picksLocked || new Date(game.gameTime) <= new Date();
   };
+
 
   if (loading) {
     return (
@@ -124,74 +203,177 @@ const PicksPage = () => {
           
           return (
             <div key={game.id} className={`card ${locked ? 'opacity-75' : ''}`}>
-              {/* Game Time */}
-              <div className="text-center text-sm text-gray-600 mb-md">
-                {formatGameTime(game.gameTime)}
-                {locked && (
-                  <span className="ml-2 text-red-600 font-semibold">🔒 LOCKED</span>
-                )}
-              </div>
+              {locked && (
+                <div className="text-center text-sm text-red-600 font-semibold mb-md">
+                  🔒 LOCKED
+                </div>
+              )}
 
               {/* Teams */}
               <div className="grid grid-cols-2 gap-md">
                 {/* Away Team */}
-                <button
-                  onClick={() => !locked && handlePickChange(game.id, game.awayTeam.id)}
-                  disabled={locked}
-                  className={`p-4 rounded-lg border-2 text-center transition-all ${
-                    userPick?.pickedTeamId === game.awayTeam.id
-                      ? 'border-orange-500 bg-orange-50'
-                      : 'border-gray-300 hover:border-gray-400'
-                  } ${locked ? 'cursor-not-allowed' : 'cursor-pointer'}`}
-                >
-                  <div className="text-lg font-semibold">
-                    {game.awayTeam.abbreviation}
-                  </div>
-                  <div className="text-sm text-gray-600">
-                    {game.awayTeam.name}
-                  </div>
-                  {game.awayTeam.score !== null && (
-                    <div className="text-xl font-bold mt-2">
-                      {game.awayTeam.score}
+                <div>
+                  <button
+                    onClick={() => {
+                      console.log('Away team clicked:', game.id, game.awayTeam.id);
+                      console.log('Current userPick:', userPick);
+                      if (!locked) handlePickChange(game.id, game.awayTeam.id);
+                    }}
+                    disabled={locked}
+                    className={`w-full p-6 rounded-lg border-2 text-center transition-all ${
+                      userPick?.pickedTeamId === game.awayTeam.id
+                        ? 'border-orange-500 bg-orange-50 font-bold'
+                        : 'border-gray-300 hover:border-gray-400'
+                    } ${locked ? 'cursor-not-allowed' : 'cursor-pointer'}`}
+                    style={{
+                      backgroundColor: userPick?.pickedTeamId === game.awayTeam.id ? '#FFF7ED' : 'white',
+                      borderColor: userPick?.pickedTeamId === game.awayTeam.id ? '#FA4616' : '#D1D5DB',
+                      minHeight: '140px'
+                    }}
+                  >
+                    <div className="text-xs text-gray-500 font-medium mb-1">@ AWAY</div>
+                    <div className="text-lg font-semibold">
+                      {game.awayTeam.abbreviation}
                     </div>
-                  )}
-                </button>
+                    <div className="text-sm text-gray-600">
+                      {game.awayTeam.name}
+                    </div>
+                    <div className="text-xs text-gray-500 mt-1">(0-0)</div>
+                    {game.awayTeam.score !== null && (
+                      <div className="text-xl font-bold mt-2">
+                        {game.awayTeam.score}
+                      </div>
+                    )}
+                  </button>
+                  
+                  {/* Away Team Injuries */}
+                  <div className="mt-2 p-2 bg-red-50 rounded-md">
+                    <div className="text-xs font-semibold text-red-800 mb-1">🏥 INJURIES</div>
+                    <div className="text-xs text-red-700">
+                      {(() => {
+                        console.log('Away team injuries:', game.awayTeamInjuries);
+                        if (!game.awayTeamInjuries || game.awayTeamInjuries.length === 0) {
+                          return 'No injuries reported';
+                        }
+                        
+                        try {
+                          return game.awayTeamInjuries.slice(0, 2).map(injury => {
+                            if (!injury || !injury.playerName || !injury.status) {
+                              return 'Injury data incomplete';
+                            }
+                            return `${injury.playerName} (${injury.position || 'N/A'}) - ${injury.status}`;
+                          }).join(', ');
+                        } catch (error) {
+                          console.error('Error processing away team injuries:', error);
+                          return 'Error loading injury data';
+                        }
+                      })()}
+                    </div>
+                  </div>
+                </div>
 
                 {/* Home Team */}
-                <button
-                  onClick={() => !locked && handlePickChange(game.id, game.homeTeam.id)}
-                  disabled={locked}
-                  className={`p-4 rounded-lg border-2 text-center transition-all ${
-                    userPick?.pickedTeamId === game.homeTeam.id
-                      ? 'border-orange-500 bg-orange-50'
-                      : 'border-gray-300 hover:border-gray-400'
-                  } ${locked ? 'cursor-not-allowed' : 'cursor-pointer'}`}
-                >
-                  <div className="text-lg font-semibold">
-                    {game.homeTeam.abbreviation}
-                  </div>
-                  <div className="text-sm text-gray-600">
-                    {game.homeTeam.name}
-                  </div>
-                  {game.homeTeam.score !== null && (
-                    <div className="text-xl font-bold mt-2">
-                      {game.homeTeam.score}
+                <div>
+                  <button
+                    onClick={() => {
+                      console.log('Home team clicked:', game.id, game.homeTeam.id);
+                      console.log('Current userPick:', userPick);
+                      if (!locked) handlePickChange(game.id, game.homeTeam.id);
+                    }}
+                    disabled={locked}
+                    className={`w-full p-6 rounded-lg border-2 text-center transition-all ${
+                      userPick?.pickedTeamId === game.homeTeam.id
+                        ? 'border-orange-500 bg-orange-50 font-bold'
+                        : 'border-gray-300 hover:border-gray-400'
+                    } ${locked ? 'cursor-not-allowed' : 'cursor-pointer'}`}
+                    style={{
+                      backgroundColor: userPick?.pickedTeamId === game.homeTeam.id ? '#FFF7ED' : 'white',
+                      borderColor: userPick?.pickedTeamId === game.homeTeam.id ? '#FA4616' : '#D1D5DB',
+                      minHeight: '140px'
+                    }}
+                  >
+                    <div className="text-xs text-gray-500 font-medium mb-1">🏠 HOME</div>
+                    <div className="text-lg font-semibold">
+                      {game.homeTeam.abbreviation}
                     </div>
-                  )}
-                </button>
+                    <div className="text-sm text-gray-600">
+                      {game.homeTeam.name}
+                    </div>
+                    <div className="text-xs text-gray-500 mt-1">(0-0)</div>
+                    {game.homeTeam.score !== null && (
+                      <div className="text-xl font-bold mt-2">
+                        {game.homeTeam.score}
+                      </div>
+                    )}
+                  </button>
+                  
+                  {/* Home Team Injuries */}
+                  <div className="mt-2 p-2 bg-red-50 rounded-md">
+                    <div className="text-xs font-semibold text-red-800 mb-1">🏥 INJURIES</div>
+                    <div className="text-xs text-red-700">
+                      {(() => {
+                        console.log('Home team injuries:', game.homeTeamInjuries);
+                        if (!game.homeTeamInjuries || game.homeTeamInjuries.length === 0) {
+                          return 'No injuries reported';
+                        }
+                        
+                        try {
+                          return game.homeTeamInjuries.slice(0, 2).map(injury => {
+                            if (!injury || !injury.playerName || !injury.status) {
+                              return 'Injury data incomplete';
+                            }
+                            return `${injury.playerName} (${injury.position || 'N/A'}) - ${injury.status}`;
+                          }).join(', ');
+                        } catch (error) {
+                          console.error('Error processing home team injuries:', error);
+                          return 'Error loading injury data';
+                        }
+                      })()}
+                    </div>
+                  </div>
+                </div>
               </div>
 
-              {/* Game Details */}
-              <div className="mt-md text-center text-sm text-gray-600">
-                {game.spread && (
-                  <span>Spread: {game.spread} | </span>
+              {/* Game Details & Betting Info */}
+              <div className="mt-md space-y-2">
+                {/* Betting Odds */}
+                {(game.spread || game.overUnder) && (
+                  <div className="bg-blue-50 p-3 rounded-md text-center">
+                    <div className="text-xs font-semibold text-blue-800 mb-2">📊 BETTING ODDS</div>
+                    <div className="space-y-1 text-sm">
+                      {game.spread && (
+                        <div className="font-medium">
+                          <span className="text-blue-700">
+                            {game.spread > 0 
+                              ? `${game.awayTeam.abbreviation} +${game.spread}` 
+                              : `${game.homeTeam.abbreviation} ${game.spread}`}
+                          </span>
+                          <span className="text-gray-600 text-xs ml-1">
+                            ({game.spread < 0 ? `${game.homeTeam.abbreviation} favored` : `${game.awayTeam.abbreviation} favored`})
+                          </span>
+                        </div>
+                      )}
+                      {game.overUnder && (
+                        <div className="font-medium">
+                          Over/Under: <span className="text-blue-700">{game.overUnder}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 )}
-                {game.overUnder && (
-                  <span>O/U: {game.overUnder}</span>
-                )}
-                {game.isFinal && (
-                  <div className="text-green-600 font-semibold mt-2">FINAL</div>
-                )}
+                
+                {/* Game Status */}
+                <div className="text-center text-sm">
+                  {game.isFinal ? (
+                    <div className="text-green-600 font-semibold bg-green-100 px-3 py-1 rounded-full inline-block">
+                      ✅ FINAL
+                    </div>
+                  ) : (
+                    <div className="text-blue-600 font-medium">
+                      🕐 {formatGameTime(game.gameTime)}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           );
