@@ -170,7 +170,7 @@ const PicksPage = () => {
   }
 
   return (
-    <div className="container mt-lg">
+    <div className="container mt-lg" style={{ maxWidth: '1400px' }}>
       <div className="mb-lg">
         <h1 className="text-2xl font-bold mb-sm">Week {currentWeek} Picks</h1>
         <p className="text-gray-600">
@@ -196,7 +196,7 @@ const PicksPage = () => {
       </div>
 
       {/* Games Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-lg">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-sm">
         {games.map(game => {
           const userPick = userPicks[game.id];
           const locked = isGameLocked(game);
@@ -210,7 +210,7 @@ const PicksPage = () => {
               )}
 
               {/* Teams */}
-              <div className="grid grid-cols-2 gap-md">
+              <div className="grid grid-cols-2 gap-sm">
                 {/* Away Team */}
                 <div>
                   <button
@@ -220,7 +220,7 @@ const PicksPage = () => {
                       if (!locked) handlePickChange(game.id, game.awayTeam.id);
                     }}
                     disabled={locked}
-                    className={`w-full p-6 rounded-lg border-2 text-center transition-all ${
+                    className={`w-full p-8 rounded-lg border-2 text-center transition-all ${
                       userPick?.pickedTeamId === game.awayTeam.id
                         ? 'border-orange-500 bg-orange-50 font-bold'
                         : 'border-gray-300 hover:border-gray-400'
@@ -228,17 +228,19 @@ const PicksPage = () => {
                     style={{
                       backgroundColor: userPick?.pickedTeamId === game.awayTeam.id ? '#FFF7ED' : 'white',
                       borderColor: userPick?.pickedTeamId === game.awayTeam.id ? '#FA4616' : '#D1D5DB',
-                      minHeight: '140px'
+                      minHeight: '160px',
+                      height: '100%',
+                      width: '300px'
                     }}
                   >
-                    <div className="text-xs text-gray-500 font-medium mb-1">@ AWAY</div>
-                    <div className="text-lg font-semibold">
+                    <div className="text-sm text-gray-500 font-medium mb-2">@ AWAY</div>
+                    <div className="text-xl font-bold">
                       {game.awayTeam.abbreviation}
                     </div>
-                    <div className="text-sm text-gray-600">
+                    <div className="text-base text-gray-600">
                       {game.awayTeam.name}
                     </div>
-                    <div className="text-xs text-gray-500 mt-1">(0-0)</div>
+                    <div className="text-sm text-gray-500 mt-2">(0-0)</div>
                     {game.awayTeam.score !== null && (
                       <div className="text-xl font-bold mt-2">
                         {game.awayTeam.score}
@@ -247,8 +249,8 @@ const PicksPage = () => {
                   </button>
                   
                   {/* Away Team Injuries */}
-                  <div className="mt-2 p-2 bg-red-50 rounded-md">
-                    <div className="text-xs font-semibold text-red-800 mb-1">🏥 INJURIES</div>
+                  <div className="mt-4 p-4 bg-red-50 rounded-md w-full">
+                    <div className="text-sm font-semibold text-red-800 mb-2">🏥 INJURIES</div>
                     <div className="text-xs text-red-700">
                       {(() => {
                         console.log('Away team injuries:', game.awayTeamInjuries);
@@ -281,7 +283,7 @@ const PicksPage = () => {
                       if (!locked) handlePickChange(game.id, game.homeTeam.id);
                     }}
                     disabled={locked}
-                    className={`w-full p-6 rounded-lg border-2 text-center transition-all ${
+                    className={`w-full p-8 rounded-lg border-2 text-center transition-all ${
                       userPick?.pickedTeamId === game.homeTeam.id
                         ? 'border-orange-500 bg-orange-50 font-bold'
                         : 'border-gray-300 hover:border-gray-400'
@@ -289,17 +291,19 @@ const PicksPage = () => {
                     style={{
                       backgroundColor: userPick?.pickedTeamId === game.homeTeam.id ? '#FFF7ED' : 'white',
                       borderColor: userPick?.pickedTeamId === game.homeTeam.id ? '#FA4616' : '#D1D5DB',
-                      minHeight: '140px'
+                      minHeight: '160px',
+                      height: '100%',
+                      width: '300px'
                     }}
                   >
-                    <div className="text-xs text-gray-500 font-medium mb-1">🏠 HOME</div>
-                    <div className="text-lg font-semibold">
+                    <div className="text-sm text-gray-500 font-medium mb-2">🏠 HOME</div>
+                    <div className="text-xl font-bold">
                       {game.homeTeam.abbreviation}
                     </div>
-                    <div className="text-sm text-gray-600">
+                    <div className="text-base text-gray-600">
                       {game.homeTeam.name}
                     </div>
-                    <div className="text-xs text-gray-500 mt-1">(0-0)</div>
+                    <div className="text-sm text-gray-500 mt-2">(0-0)</div>
                     {game.homeTeam.score !== null && (
                       <div className="text-xl font-bold mt-2">
                         {game.homeTeam.score}
@@ -308,8 +312,8 @@ const PicksPage = () => {
                   </button>
                   
                   {/* Home Team Injuries */}
-                  <div className="mt-2 p-2 bg-red-50 rounded-md">
-                    <div className="text-xs font-semibold text-red-800 mb-1">🏥 INJURIES</div>
+                  <div className="mt-4 p-4 bg-red-50 rounded-md w-full">
+                    <div className="text-sm font-semibold text-red-800 mb-2">🏥 INJURIES</div>
                     <div className="text-xs text-red-700">
                       {(() => {
                         console.log('Home team injuries:', game.homeTeamInjuries);
@@ -335,11 +339,11 @@ const PicksPage = () => {
               </div>
 
               {/* Game Details & Betting Info */}
-              <div className="mt-md space-y-2">
+              <div className="clear-both mt-xl space-y-2" style={{ marginTop: '4rem' }}>
                 {/* Betting Odds */}
                 {(game.spread || game.overUnder) && (
-                  <div className="bg-blue-50 p-3 rounded-md text-center">
-                    <div className="text-xs font-semibold text-blue-800 mb-2">📊 BETTING ODDS</div>
+                  <div className="bg-blue-50 p-6 rounded-md text-center">
+                    <div className="text-sm font-semibold text-blue-800 mb-3">📊 BETTING ODDS</div>
                     <div className="space-y-1 text-sm">
                       {game.spread && (
                         <div className="font-medium">
