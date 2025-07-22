@@ -7,7 +7,8 @@
       "Bash(docker-compose:*)",
       "Bash(curl:*)",
       "Bash(echo)",
-      "Bash(docker logs:*)"
+      "Bash(docker logs:*)",
+      "Bash(docker exec:*)"
     ],
     "deny": []
   }

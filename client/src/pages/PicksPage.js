@@ -21,7 +21,6 @@ const PicksPage = () => {
       
       // Transform the API response to match our component structure
       const gamesData = response.data.map(game => {
-        console.log('Raw game data:', game); // Debug log
         return {
           id: game.id,
           week: game.week,
@@ -53,22 +52,17 @@ const PicksPage = () => {
         if (game.picked_team_id) {
           picksData[game.id] = {
             pickedTeamId: game.picked_team_id,
-            confidencePoints: game.confidence_points || 1
+            confidencePoints: game.confidence_points || 1,
+            isCorrect: game.is_correct,
+            pointsEarned: game.points_earned
           };
         }
       });
       
-      console.log('Games data:', gamesData);
-      console.log('Picks data:', picksData);
-      console.log('Raw API response:', response.data);
       
       setGames(gamesData);
       setUserPicks(picksData);
       
-      // Debug log after state update
-      setTimeout(() => {
-        console.log('userPicks state after update:', picksData);
-      }, 100);
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
@@ -94,7 +88,6 @@ const PicksPage = () => {
         pickedTeamId: teamId,
         confidencePoints: 1
       });
-      console.log(`Pick submitted: Game ${gameId}, Team ${teamId}`);
     } catch (error) {
       console.error('Error submitting pick:', error);
       // Revert the local state if the API call failed
@@ -116,7 +109,6 @@ const PicksPage = () => {
         pickedTeamId: teamId,
         confidencePoints: 1
       });
-      console.log('Pick submitted successfully');
     } catch (error) {
       console.error('Error submitting pick:', error);
       alert('Error submitting pick. Please try again.');
@@ -158,6 +150,53 @@ const PicksPage = () => {
     // Disable locking for testing - always return false
     return false;
     // Original logic: return game.picksLocked || new Date(game.gameTime) <= new Date();
+  };
+
+  const getTeamButtonStyling = (game, teamId, userPick) => {
+    const isSelected = userPick?.pickedTeamId === teamId;
+    const isGameCompleted = game.isFinal && userPick;
+    
+    // Base styles
+    let className = `w-full p-8 rounded-lg border-2 text-center transition-all `;
+    let styles = {
+      minHeight: '160px',
+      height: '100%',
+      width: '300px'
+    };
+    
+    if (isGameCompleted && isSelected) {
+      // Game is completed and this team was picked
+      if (userPick.isCorrect) {
+        // Correct pick - green styling
+        className += 'border-green-500 bg-green-100 font-bold';
+        styles.backgroundColor = '#F0FDF4';
+        styles.borderColor = '#22C55E';
+      } else {
+        // Incorrect pick - red styling
+        className += 'border-red-500 bg-red-100 font-bold';
+        styles.backgroundColor = '#FEF2F2';
+        styles.borderColor = '#EF4444';
+      }
+    } else if (isSelected) {
+      // Selected but game not completed - orange styling
+      className += 'border-orange-500 bg-orange-50 font-bold';
+      styles.backgroundColor = '#FFF7ED';
+      styles.borderColor = '#FA4616';
+    } else {
+      // Not selected - default styling
+      className += 'border-gray-300 hover:border-gray-400';
+      styles.backgroundColor = 'white';
+      styles.borderColor = '#D1D5DB';
+    }
+    
+    const locked = isGameLocked(game);
+    if (locked) {
+      className += ' cursor-not-allowed';
+    } else {
+      className += ' cursor-pointer';
+    }
+    
+    return { className, styles };
   };
 
 
@@ -213,47 +252,39 @@ const PicksPage = () => {
               <div className="grid grid-cols-2 gap-sm">
                 {/* Away Team */}
                 <div>
-                  <button
-                    onClick={() => {
-                      console.log('Away team clicked:', game.id, game.awayTeam.id);
-                      console.log('Current userPick:', userPick);
-                      if (!locked) handlePickChange(game.id, game.awayTeam.id);
-                    }}
-                    disabled={locked}
-                    className={`w-full p-8 rounded-lg border-2 text-center transition-all ${
-                      userPick?.pickedTeamId === game.awayTeam.id
-                        ? 'border-orange-500 bg-orange-50 font-bold'
-                        : 'border-gray-300 hover:border-gray-400'
-                    } ${locked ? 'cursor-not-allowed' : 'cursor-pointer'}`}
-                    style={{
-                      backgroundColor: userPick?.pickedTeamId === game.awayTeam.id ? '#FFF7ED' : 'white',
-                      borderColor: userPick?.pickedTeamId === game.awayTeam.id ? '#FA4616' : '#D1D5DB',
-                      minHeight: '160px',
-                      height: '100%',
-                      width: '300px'
-                    }}
-                  >
-                    <div className="text-sm text-gray-500 font-medium mb-2">@ AWAY</div>
-                    <div className="text-xl font-bold">
-                      {game.awayTeam.abbreviation}
-                    </div>
-                    <div className="text-base text-gray-600">
-                      {game.awayTeam.name}
-                    </div>
-                    <div className="text-sm text-gray-500 mt-2">(0-0)</div>
-                    {game.awayTeam.score !== null && (
-                      <div className="text-xl font-bold mt-2">
-                        {game.awayTeam.score}
-                      </div>
-                    )}
-                  </button>
+                  {(() => {
+                    const { className, styles } = getTeamButtonStyling(game, game.awayTeam.id, userPick);
+                    return (
+                      <button
+                        onClick={() => {
+                          if (!locked) handlePickChange(game.id, game.awayTeam.id);
+                        }}
+                        disabled={locked}
+                        className={className}
+                        style={styles}
+                      >
+                        <div className="text-sm text-gray-500 font-medium mb-2">@ AWAY</div>
+                        <div className="text-xl font-bold">
+                          {game.awayTeam.abbreviation}
+                        </div>
+                        <div className="text-base text-gray-600">
+                          {game.awayTeam.name}
+                        </div>
+                        <div className="text-sm text-gray-500 mt-2">(0-0)</div>
+                        {game.awayTeam.score !== null && (
+                          <div className="text-xl font-bold mt-2">
+                            {game.awayTeam.score}
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })()}
                   
                   {/* Away Team Injuries */}
                   <div className="mt-4 p-4 bg-red-50 rounded-md w-full">
                     <div className="text-sm font-semibold text-red-800 mb-2">🏥 INJURIES</div>
                     <div className="text-xs text-red-700">
                       {(() => {
-                        console.log('Away team injuries:', game.awayTeamInjuries);
                         if (!game.awayTeamInjuries || game.awayTeamInjuries.length === 0) {
                           return 'No injuries reported';
                         }
@@ -276,47 +307,39 @@ const PicksPage = () => {
 
                 {/* Home Team */}
                 <div>
-                  <button
-                    onClick={() => {
-                      console.log('Home team clicked:', game.id, game.homeTeam.id);
-                      console.log('Current userPick:', userPick);
-                      if (!locked) handlePickChange(game.id, game.homeTeam.id);
-                    }}
-                    disabled={locked}
-                    className={`w-full p-8 rounded-lg border-2 text-center transition-all ${
-                      userPick?.pickedTeamId === game.homeTeam.id
-                        ? 'border-orange-500 bg-orange-50 font-bold'
-                        : 'border-gray-300 hover:border-gray-400'
-                    } ${locked ? 'cursor-not-allowed' : 'cursor-pointer'}`}
-                    style={{
-                      backgroundColor: userPick?.pickedTeamId === game.homeTeam.id ? '#FFF7ED' : 'white',
-                      borderColor: userPick?.pickedTeamId === game.homeTeam.id ? '#FA4616' : '#D1D5DB',
-                      minHeight: '160px',
-                      height: '100%',
-                      width: '300px'
-                    }}
-                  >
-                    <div className="text-sm text-gray-500 font-medium mb-2">🏠 HOME</div>
-                    <div className="text-xl font-bold">
-                      {game.homeTeam.abbreviation}
-                    </div>
-                    <div className="text-base text-gray-600">
-                      {game.homeTeam.name}
-                    </div>
-                    <div className="text-sm text-gray-500 mt-2">(0-0)</div>
-                    {game.homeTeam.score !== null && (
-                      <div className="text-xl font-bold mt-2">
-                        {game.homeTeam.score}
-                      </div>
-                    )}
-                  </button>
+                  {(() => {
+                    const { className, styles } = getTeamButtonStyling(game, game.homeTeam.id, userPick);
+                    return (
+                      <button
+                        onClick={() => {
+                          if (!locked) handlePickChange(game.id, game.homeTeam.id);
+                        }}
+                        disabled={locked}
+                        className={className}
+                        style={styles}
+                      >
+                        <div className="text-sm text-gray-500 font-medium mb-2">🏠 HOME</div>
+                        <div className="text-xl font-bold">
+                          {game.homeTeam.abbreviation}
+                        </div>
+                        <div className="text-base text-gray-600">
+                          {game.homeTeam.name}
+                        </div>
+                        <div className="text-sm text-gray-500 mt-2">(0-0)</div>
+                        {game.homeTeam.score !== null && (
+                          <div className="text-xl font-bold mt-2">
+                            {game.homeTeam.score}
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })()}
                   
                   {/* Home Team Injuries */}
                   <div className="mt-4 p-4 bg-red-50 rounded-md w-full">
                     <div className="text-sm font-semibold text-red-800 mb-2">🏥 INJURIES</div>
                     <div className="text-xs text-red-700">
                       {(() => {
-                        console.log('Home team injuries:', game.homeTeamInjuries);
                         if (!game.homeTeamInjuries || game.homeTeamInjuries.length === 0) {
                           return 'No injuries reported';
                         }

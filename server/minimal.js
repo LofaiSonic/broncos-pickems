@@ -3,6 +3,7 @@ const cors = require('cors');
 const jwt = require('jsonwebtoken');
 const axios = require('axios');
 const db = require('./models/database');
+const automaticUpdates = require('./services/automaticUpdates');
 require('dotenv').config();
 
 // Function to fetch injury data from ESPN API for a team
@@ -181,7 +182,9 @@ app.get('/api/games/week/:week/picks', async (req, res) => {
         at.abbreviation as away_team_abbr,
         at.primary_color as away_team_color,
         p.picked_team_id,
-        p.confidence_points
+        p.confidence_points,
+        p.is_correct,
+        p.points_earned
       FROM games g
       JOIN teams ht ON g.home_team_id = ht.id
       JOIN teams at ON g.away_team_id = at.id
@@ -340,6 +343,29 @@ app.post('/test/complete-games', async (req, res) => {
   } catch (error) {
     console.error('❌ Error completing games:', error.message);
     res.status(500).json({ error: 'Failed to complete games', details: error.message });
+  }
+});
+
+// Clear all picks for testing
+app.post('/test/clear-picks', async (req, res) => {
+  try {
+    console.log('🧹 Clearing all picks for testing...');
+    
+    // Delete all picks
+    const result = await db.query('DELETE FROM picks');
+    const deletedCount = result.rowCount;
+    
+    console.log(`✅ Cleared ${deletedCount} picks from database`);
+    
+    res.json({
+      success: true,
+      message: `Successfully cleared ${deletedCount} picks`,
+      deletedCount
+    });
+    
+  } catch (error) {
+    console.error('❌ Error clearing picks:', error.message);
+    res.status(500).json({ error: 'Failed to clear picks', details: error.message });
   }
 });
 
@@ -1103,7 +1129,353 @@ app.get('/api/games/week/:week', async (req, res) => {
   }
 });
 
+// ===== LEADERBOARD API ENDPOINTS =====
+
+// Get user statistics for profile page
+app.get('/api/leaderboard/user/:userId', async (req, res) => {
+  try {
+    const userId = parseInt(req.params.userId);
+    
+    // Get user's total stats
+    const statsResult = await db.query(`
+      SELECT 
+        COUNT(p.id) as total_picks,
+        SUM(CASE WHEN p.is_correct = true THEN 1 ELSE 0 END) as correct_picks,
+        SUM(p.points_earned) as total_points,
+        COUNT(DISTINCT g.week) as weeks_participated,
+        CASE 
+          WHEN COUNT(p.id) > 0 THEN 
+            ROUND((SUM(CASE WHEN p.is_correct = true THEN 1 ELSE 0 END)::decimal / COUNT(p.id)) * 100)
+          ELSE 0 
+        END as accuracy_percentage
+      FROM picks p 
+      JOIN games g ON p.game_id = g.id
+      WHERE p.user_id = $1
+    `, [userId]);
+
+    const stats = statsResult.rows[0];
+
+    // Get weekly breakdown
+    const weeklyResult = await db.query(`
+      SELECT 
+        g.week,
+        COUNT(p.id) as picks,
+        SUM(CASE WHEN p.is_correct = true THEN 1 ELSE 0 END) as correct,
+        SUM(p.points_earned) as points,
+        CASE 
+          WHEN COUNT(p.id) > 0 THEN 
+            ROUND((SUM(CASE WHEN p.is_correct = true THEN 1 ELSE 0 END)::decimal / COUNT(p.id)) * 100)
+          ELSE 0 
+        END as accuracy
+      FROM picks p 
+      JOIN games g ON p.game_id = g.id
+      WHERE p.user_id = $1
+      GROUP BY g.week
+      ORDER BY g.week
+    `, [userId]);
+
+    // Get favorite teams (most picked teams)
+    const favoritesResult = await db.query(`
+      SELECT 
+        t.name,
+        t.abbreviation,
+        COUNT(p.id) as pick_count,
+        SUM(CASE WHEN p.is_correct = true THEN 1 ELSE 0 END) as correct_count,
+        CASE 
+          WHEN COUNT(p.id) > 0 THEN 
+            ROUND((SUM(CASE WHEN p.is_correct = true THEN 1 ELSE 0 END)::decimal / COUNT(p.id)) * 100)
+          ELSE 0 
+        END as accuracy
+      FROM picks p
+      JOIN games g ON (p.picked_team_id = g.home_team_id OR p.picked_team_id = g.away_team_id)
+      JOIN teams t ON p.picked_team_id = t.id
+      WHERE p.user_id = $1
+      GROUP BY t.id, t.name, t.abbreviation
+      ORDER BY pick_count DESC, accuracy DESC
+      LIMIT 5
+    `, [userId]);
+
+    // Format the response
+    const response = {
+      totalPoints: parseInt(stats.total_points) || 0,
+      totalPicks: parseInt(stats.total_picks) || 0,
+      correctPicks: parseInt(stats.correct_picks) || 0,
+      accuracyPercentage: parseInt(stats.accuracy_percentage) || 0,
+      weeksParticipated: parseInt(stats.weeks_participated) || 0,
+      weeklyBreakdown: weeklyResult.rows.map(week => ({
+        week: parseInt(week.week),
+        picks: parseInt(week.picks),
+        correct: parseInt(week.correct),
+        points: parseInt(week.points),
+        accuracy: parseInt(week.accuracy)
+      })),
+      favoriteTeams: favoritesResult.rows.map(team => ({
+        name: team.name,
+        abbreviation: team.abbreviation,
+        pickCount: parseInt(team.pick_count),
+        correctCount: parseInt(team.correct_count),
+        accuracy: parseInt(team.accuracy)
+      }))
+    };
+
+    res.json(response);
+  } catch (error) {
+    console.error('Error fetching user stats:', error);
+    res.status(500).json({ error: 'Failed to fetch user statistics' });
+  }
+});
+
+// Get season leaderboard
+app.get('/api/leaderboard/season', async (req, res) => {
+  try {
+    const result = await db.query(`
+      SELECT 
+        u.id as user_id,
+        u.username,
+        u.avatar_url as avatar,
+        COUNT(p.id) as total_picks,
+        SUM(CASE WHEN p.is_correct = true THEN 1 ELSE 0 END) as correct_picks,
+        SUM(p.points_earned) as total_points,
+        COUNT(DISTINCT g.week) as weeks_participated,
+        CASE 
+          WHEN COUNT(p.id) > 0 THEN 
+            ROUND((SUM(CASE WHEN p.is_correct = true THEN 1 ELSE 0 END)::decimal / COUNT(p.id)) * 100)
+          ELSE 0 
+        END as accuracy_percentage,
+        ROW_NUMBER() OVER (ORDER BY SUM(p.points_earned) DESC, COUNT(CASE WHEN p.is_correct = true THEN 1 END) DESC) as rank
+      FROM users u
+      LEFT JOIN picks p ON u.id = p.user_id
+      LEFT JOIN games g ON p.game_id = g.id
+      GROUP BY u.id, u.username, u.avatar_url
+      HAVING COUNT(p.id) > 0
+      ORDER BY total_points DESC, correct_picks DESC
+    `);
+
+    // Format the response to match frontend expectations
+    const formattedResult = result.rows.map(player => ({
+      userId: parseInt(player.user_id),
+      username: player.username,
+      avatar: player.avatar,
+      totalPicks: parseInt(player.total_picks),
+      correctPicks: parseInt(player.correct_picks),
+      totalPoints: parseInt(player.total_points),
+      weeksParticipated: parseInt(player.weeks_participated),
+      accuracyPercentage: parseInt(player.accuracy_percentage),
+      rank: parseInt(player.rank)
+    }));
+
+    res.json(formattedResult);
+  } catch (error) {
+    console.error('Error fetching season leaderboard:', error);
+    res.status(500).json({ error: 'Failed to fetch season leaderboard' });
+  }
+});
+
+// Get weekly leaderboard
+app.get('/api/leaderboard/week/:week', async (req, res) => {
+  try {
+    const week = parseInt(req.params.week);
+    
+    const result = await db.query(`
+      SELECT 
+        u.id as user_id,
+        u.username,
+        u.avatar_url as avatar,
+        COUNT(p.id) as total_picks,
+        SUM(CASE WHEN p.is_correct = true THEN 1 ELSE 0 END) as correct_picks,
+        SUM(p.points_earned) as total_points,
+        1 as weeks_participated,
+        CASE 
+          WHEN COUNT(p.id) > 0 THEN 
+            ROUND((SUM(CASE WHEN p.is_correct = true THEN 1 ELSE 0 END)::decimal / COUNT(p.id)) * 100)
+          ELSE 0 
+        END as accuracy_percentage,
+        ROW_NUMBER() OVER (ORDER BY SUM(p.points_earned) DESC, COUNT(CASE WHEN p.is_correct = true THEN 1 END) DESC) as rank
+      FROM users u
+      INNER JOIN picks p ON u.id = p.user_id
+      INNER JOIN games g ON p.game_id = g.id AND g.week = $1
+      GROUP BY u.id, u.username, u.avatar_url
+      HAVING COUNT(p.id) > 0
+      ORDER BY total_points DESC, correct_picks DESC
+    `, [week]);
+
+    // Format the response to match frontend expectations
+    const formattedResult = result.rows.map(player => ({
+      userId: parseInt(player.user_id),
+      username: player.username,
+      avatar: player.avatar,
+      totalPicks: parseInt(player.total_picks),
+      correctPicks: parseInt(player.correct_picks),
+      totalPoints: parseInt(player.total_points),
+      weeksParticipated: parseInt(player.weeks_participated),
+      accuracyPercentage: parseInt(player.accuracy_percentage),
+      rank: parseInt(player.rank)
+    }));
+
+    res.json(formattedResult);
+  } catch (error) {
+    console.error('Error fetching weekly leaderboard:', error);
+    res.status(500).json({ error: 'Failed to fetch weekly leaderboard' });
+  }
+});
+
+// Get picks comparison for a specific week
+app.get('/api/picks/week/:week/compare', async (req, res) => {
+  try {
+    const week = parseInt(req.params.week);
+    
+    // Get all games for the week with pick data
+    const result = await db.query(`
+      SELECT 
+        g.id,
+        g.week,
+        g.game_time,
+        g.is_final,
+        g.home_score,
+        g.away_score,
+        g.spread,
+        g.over_under,
+        ht.id as home_team_id,
+        ht.name as home_team_name,
+        ht.abbreviation as home_team_abbr,
+        at.id as away_team_id,
+        at.name as away_team_name,
+        at.abbreviation as away_team_abbr,
+        p.user_id,
+        p.picked_team_id,
+        p.confidence_points,
+        p.is_correct,
+        p.points_earned,
+        u.username,
+        u.avatar_url
+      FROM games g
+      JOIN teams ht ON g.home_team_id = ht.id
+      JOIN teams at ON g.away_team_id = at.id
+      LEFT JOIN picks p ON g.id = p.game_id
+      LEFT JOIN users u ON p.user_id = u.id
+      WHERE g.week = $1
+      ORDER BY g.game_time, u.username
+    `, [week]);
+
+    // Group by game and organize pick data
+    const gamesMap = new Map();
+    
+    result.rows.forEach(row => {
+      if (!gamesMap.has(row.id)) {
+        gamesMap.set(row.id, {
+          id: row.id,
+          week: row.week,
+          gameTime: row.game_time,
+          isFinal: row.is_final,
+          homeTeam: {
+            id: row.home_team_id,
+            name: row.home_team_name,
+            abbreviation: row.home_team_abbr
+          },
+          awayTeam: {
+            id: row.away_team_id,
+            name: row.away_team_name,
+            abbreviation: row.away_team_abbr
+          },
+          homeScore: row.home_score,
+          awayScore: row.away_score,
+          spread: row.spread,
+          overUnder: row.over_under,
+          picks: []
+        });
+      }
+      
+      // Add pick data if it exists
+      if (row.user_id) {
+        gamesMap.get(row.id).picks.push({
+          userId: row.user_id,
+          username: row.username,
+          avatar: row.avatar_url,
+          pickedTeamId: row.picked_team_id,
+          confidencePoints: row.confidence_points,
+          isCorrect: row.is_correct,
+          pointsEarned: row.points_earned
+        });
+      }
+    });
+
+    const games = Array.from(gamesMap.values());
+    res.json(games);
+    
+  } catch (error) {
+    console.error('Error fetching picks comparison:', error);
+    res.status(500).json({ error: 'Failed to fetch picks comparison' });
+  }
+});
+
+// ===== AUTOMATIC UPDATES API ENDPOINTS =====
+
+// Get update service status
+app.get('/api/admin/updates/status', async (req, res) => {
+  try {
+    const status = automaticUpdates.getStatus();
+    const recentLogs = await automaticUpdates.getRecentLogs(20);
+    
+    res.json({
+      ...status,
+      recentLogs
+    });
+  } catch (error) {
+    console.error('Error fetching update status:', error);
+    res.status(500).json({ error: 'Failed to fetch update status' });
+  }
+});
+
+// Get detailed update logs
+app.get('/api/admin/updates/logs', async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 50;
+    const logs = await automaticUpdates.getRecentLogs(limit);
+    res.json(logs);
+  } catch (error) {
+    console.error('Error fetching update logs:', error);
+    res.status(500).json({ error: 'Failed to fetch update logs' });
+  }
+});
+
+// Manually trigger specific update
+app.post('/api/admin/updates/trigger/:updateType', async (req, res) => {
+  try {
+    const { updateType } = req.params;
+    const validTypes = ['injuries', 'odds', 'records', 'weather', 'games'];
+    
+    if (!validTypes.includes(updateType)) {
+      return res.status(400).json({ 
+        error: `Invalid update type. Must be one of: ${validTypes.join(', ')}` 
+      });
+    }
+    
+    console.log(`🔄 Manual trigger requested for: ${updateType}`);
+    const result = await automaticUpdates.triggerUpdate(updateType);
+    
+    res.json({
+      success: true,
+      updateType,
+      recordsUpdated: result,
+      message: `${updateType} update completed successfully`
+    });
+  } catch (error) {
+    console.error(`Error triggering ${req.params.updateType} update:`, error);
+    res.status(500).json({ 
+      error: `Failed to trigger ${req.params.updateType} update: ${error.message}` 
+    });
+  }
+});
+
+// Start the server and initialize automatic updates
 app.listen(PORT, () => {
   console.log(`🏈 Minimal Broncos Server running on port ${PORT}`);
   console.log('✅ Server started successfully!');
+  
+  // Initialize automatic updates service
+  try {
+    automaticUpdates.init();
+  } catch (error) {
+    console.error('❌ Failed to initialize automatic updates:', error.message);
+  }
 });

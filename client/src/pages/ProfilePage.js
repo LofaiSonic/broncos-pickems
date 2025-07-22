@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useAuth } from '../hooks/useAuth';
+import AdminPanel from '../components/AdminPanel';
 
 const ProfilePage = () => {
   const { user } = useAuth();
@@ -167,6 +168,9 @@ const ProfilePage = () => {
           <p className="text-sm">Keep making picks to unlock badges and rewards</p>
         </div>
       </div>
+
+      {/* Admin Panel - Show for testing (restrict later) */}
+      {user && <AdminPanel />}
     </div>
   );
 };
