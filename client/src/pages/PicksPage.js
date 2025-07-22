@@ -9,6 +9,7 @@ const PicksPage = () => {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [currentWeek, setCurrentWeek] = useState(week || '1');
+  const [gameResults, setGameResults] = useState({}); // Store game results for coloring
 
   useEffect(() => {
     fetchGamesAndPicks();
@@ -65,9 +66,37 @@ const PicksPage = () => {
       setGames(gamesData);
       setUserPicks(picksData);
       
+      // Build game results for coloring completed games
+      const resultsData = {};
+      response.data.forEach(game => {
+        if (game.is_final && game.picked_team_id) {
+          const homeWon = game.home_score > game.away_score;
+          const awayWon = game.away_score > game.home_score;
+          const tie = game.home_score === game.away_score;
+          
+          let isCorrect = false;
+          if (!tie) {
+            if (homeWon && game.picked_team_id === game.home_team_id) {
+              isCorrect = true;
+            } else if (awayWon && game.picked_team_id === game.away_team_id) {
+              isCorrect = true;
+            }
+          }
+          
+          resultsData[game.id] = {
+            isCorrect,
+            finalScore: `${game.away_team_abbr} ${game.away_score} - ${game.home_score} ${game.home_team_abbr}`,
+            isCompleted: true
+          };
+        }
+      });
+      
+      setGameResults(resultsData);
+      
       // Debug log after state update
       setTimeout(() => {
         console.log('userPicks state after update:', picksData);
+        console.log('gameResults:', resultsData);
       }, 100);
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -200,12 +229,21 @@ const PicksPage = () => {
         {games.map(game => {
           const userPick = userPicks[game.id];
           const locked = isGameLocked(game);
+          const result = gameResults[game.id];
           
           return (
             <div key={game.id} className={`card ${locked ? 'opacity-75' : ''}`}>
               {locked && (
                 <div className="text-center text-sm text-red-600 font-semibold mb-md">
                   🔒 LOCKED
+                </div>
+              )}
+              
+              {result?.isCompleted && (
+                <div className="text-center text-sm font-semibold mb-md" style={{
+                  color: result.isCorrect ? '#22c55e' : '#ef4444'
+                }}>
+                  {result.isCorrect ? '✅ CORRECT' : '❌ INCORRECT'} • {result.finalScore}
                 </div>
               )}
 
@@ -222,12 +260,23 @@ const PicksPage = () => {
                     disabled={locked}
                     className={`w-full p-8 rounded-lg border-2 text-center transition-all ${
                       userPick?.pickedTeamId === game.awayTeam.id
-                        ? 'border-orange-500 bg-orange-50 font-bold'
-                        : 'border-gray-300 hover:border-gray-400'
+                        ? 'font-bold'
+                        : 'hover:border-gray-400'
                     } ${locked ? 'cursor-not-allowed' : 'cursor-pointer'}`}
                     style={{
-                      backgroundColor: userPick?.pickedTeamId === game.awayTeam.id ? '#FFF7ED' : 'white',
-                      borderColor: userPick?.pickedTeamId === game.awayTeam.id ? '#FA4616' : '#D1D5DB',
+                      backgroundColor: (() => {
+                        if (result?.isCompleted && userPick?.pickedTeamId === game.awayTeam.id) {
+                          return result.isCorrect ? '#f0fdf4' : '#fef2f2'; // Green or red background
+                        }
+                        return userPick?.pickedTeamId === game.awayTeam.id ? '#FFF7ED' : 'white';
+                      })(),
+                      borderColor: (() => {
+                        if (result?.isCompleted && userPick?.pickedTeamId === game.awayTeam.id) {
+                          return result.isCorrect ? '#22c55e' : '#ef4444'; // Green or red border
+                        }
+                        return userPick?.pickedTeamId === game.awayTeam.id ? '#FA4616' : '#D1D5DB';
+                      })(),
+                      borderWidth: result?.isCompleted && userPick?.pickedTeamId === game.awayTeam.id ? '3px' : '2px',
                       minHeight: '160px',
                       height: '100%',
                       width: '300px'
@@ -285,12 +334,23 @@ const PicksPage = () => {
                     disabled={locked}
                     className={`w-full p-8 rounded-lg border-2 text-center transition-all ${
                       userPick?.pickedTeamId === game.homeTeam.id
-                        ? 'border-orange-500 bg-orange-50 font-bold'
-                        : 'border-gray-300 hover:border-gray-400'
+                        ? 'font-bold'
+                        : 'hover:border-gray-400'
                     } ${locked ? 'cursor-not-allowed' : 'cursor-pointer'}`}
                     style={{
-                      backgroundColor: userPick?.pickedTeamId === game.homeTeam.id ? '#FFF7ED' : 'white',
-                      borderColor: userPick?.pickedTeamId === game.homeTeam.id ? '#FA4616' : '#D1D5DB',
+                      backgroundColor: (() => {
+                        if (result?.isCompleted && userPick?.pickedTeamId === game.homeTeam.id) {
+                          return result.isCorrect ? '#f0fdf4' : '#fef2f2'; // Green or red background
+                        }
+                        return userPick?.pickedTeamId === game.homeTeam.id ? '#FFF7ED' : 'white';
+                      })(),
+                      borderColor: (() => {
+                        if (result?.isCompleted && userPick?.pickedTeamId === game.homeTeam.id) {
+                          return result.isCorrect ? '#22c55e' : '#ef4444'; // Green or red border
+                        }
+                        return userPick?.pickedTeamId === game.homeTeam.id ? '#FA4616' : '#D1D5DB';
+                      })(),
+                      borderWidth: result?.isCompleted && userPick?.pickedTeamId === game.homeTeam.id ? '3px' : '2px',
                       minHeight: '160px',
                       height: '100%',
                       width: '300px'

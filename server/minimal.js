@@ -1103,6 +1103,495 @@ app.get('/api/games/week/:week', async (req, res) => {
   }
 });
 
+// ========================================
+// LEADERBOARD ENDPOINTS
+// ========================================
+
+// Get season leaderboard
+app.get('/api/leaderboard/season', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) {
+      return res.status(401).json({ error: 'No authorization header' });
+    }
+
+    const result = await db.query(`
+      SELECT 
+        u.id as user_id,
+        u.username,
+        u.avatar_url,
+        COALESCE(SUM(p.points_earned), 0) as total_points,
+        COUNT(p.id) as total_picks,
+        COUNT(CASE WHEN p.is_correct = true THEN 1 END) as correct_picks,
+        ROUND(
+          CASE 
+            WHEN COUNT(p.id) > 0 
+            THEN (COUNT(CASE WHEN p.is_correct = true THEN 1 END)::DECIMAL / COUNT(p.id)) * 100 
+            ELSE 0 
+          END, 1
+        ) as accuracy_percentage,
+        COUNT(DISTINCT g.week) as weeks_participated
+      FROM users u
+      LEFT JOIN picks p ON u.id = p.user_id
+      LEFT JOIN games g ON p.game_id = g.id AND g.is_final = true
+      WHERE g.season_id = (SELECT id FROM seasons WHERE is_active = TRUE LIMIT 1) OR g.id IS NULL
+      GROUP BY u.id, u.username, u.avatar_url
+      HAVING COUNT(p.id) > 0
+      ORDER BY total_points DESC, accuracy_percentage DESC
+    `);
+
+    const leaderboard = result.rows.map((player, index) => ({
+      rank: index + 1,
+      userId: player.user_id,
+      username: player.username,
+      avatar: player.avatar_url,
+      totalPoints: parseInt(player.total_points),
+      totalPicks: parseInt(player.total_picks),
+      correctPicks: parseInt(player.correct_picks),
+      accuracyPercentage: parseFloat(player.accuracy_percentage),
+      weeksParticipated: parseInt(player.weeks_participated)
+    }));
+
+    res.json(leaderboard);
+  } catch (error) {
+    console.error('Error fetching season leaderboard:', error);
+    res.status(500).json({ error: 'Failed to fetch season leaderboard' });
+  }
+});
+
+// Get weekly leaderboard
+app.get('/api/leaderboard/week/:week', async (req, res) => {
+  try {
+    const week = parseInt(req.params.week);
+    const authHeader = req.headers.authorization;
+    
+    if (!authHeader) {
+      return res.status(401).json({ error: 'No authorization header' });
+    }
+
+    const result = await db.query(`
+      SELECT 
+        u.id as user_id,
+        u.username,
+        u.avatar_url,
+        COALESCE(SUM(p.points_earned), 0) as total_points,
+        COUNT(p.id) as total_picks,
+        COUNT(CASE WHEN p.is_correct = true THEN 1 END) as correct_picks,
+        ROUND(
+          CASE 
+            WHEN COUNT(p.id) > 0 
+            THEN (COUNT(CASE WHEN p.is_correct = true THEN 1 END)::DECIMAL / COUNT(p.id)) * 100 
+            ELSE 0 
+          END, 1
+        ) as accuracy_percentage
+      FROM users u
+      LEFT JOIN picks p ON u.id = p.user_id
+      LEFT JOIN games g ON p.game_id = g.id AND g.week = $1 AND g.is_final = true
+      WHERE g.season_id = (SELECT id FROM seasons WHERE is_active = TRUE LIMIT 1) OR g.id IS NULL
+      GROUP BY u.id, u.username, u.avatar_url
+      HAVING COUNT(p.id) > 0
+      ORDER BY total_points DESC, accuracy_percentage DESC
+    `, [week]);
+
+    const leaderboard = result.rows.map((player, index) => ({
+      rank: index + 1,
+      userId: player.user_id,
+      username: player.username,
+      avatar: player.avatar_url,
+      totalPoints: parseInt(player.total_points),
+      totalPicks: parseInt(player.total_picks),
+      correctPicks: parseInt(player.correct_picks),
+      accuracyPercentage: parseFloat(player.accuracy_percentage)
+    }));
+
+    res.json(leaderboard);
+  } catch (error) {
+    console.error('Error fetching weekly leaderboard:', error);
+    res.status(500).json({ error: 'Failed to fetch weekly leaderboard' });
+  }
+});
+
+// Get individual user stats for profile page
+app.get('/api/leaderboard/user/:userId', async (req, res) => {
+  try {
+    const userId = parseInt(req.params.userId);
+    const authHeader = req.headers.authorization;
+    
+    if (!authHeader) {
+      return res.status(401).json({ error: 'No authorization header' });
+    }
+
+    // Get user's overall stats
+    const userStatsResult = await db.query(`
+      SELECT 
+        u.id as user_id,
+        u.username,
+        u.avatar_url,
+        COALESCE(SUM(p.points_earned), 0) as total_points,
+        COUNT(p.id) as total_picks,
+        COUNT(CASE WHEN p.is_correct = true THEN 1 END) as correct_picks,
+        ROUND(
+          CASE 
+            WHEN COUNT(p.id) > 0 
+            THEN (COUNT(CASE WHEN p.is_correct = true THEN 1 END)::DECIMAL / COUNT(p.id)) * 100 
+            ELSE 0 
+          END, 1
+        ) as accuracy_percentage,
+        COUNT(DISTINCT g.week) as weeks_participated
+      FROM users u
+      LEFT JOIN picks p ON u.id = p.user_id
+      LEFT JOIN games g ON p.game_id = g.id AND g.is_final = true
+      WHERE u.id = $1 AND (g.season_id = (SELECT id FROM seasons WHERE is_active = TRUE LIMIT 1) OR g.id IS NULL)
+      GROUP BY u.id, u.username, u.avatar_url
+    `, [userId]);
+
+    if (userStatsResult.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const userStats = userStatsResult.rows[0];
+
+    // Get weekly breakdown
+    const weeklyResult = await db.query(`
+      SELECT 
+        g.week,
+        COUNT(p.id) as picks,
+        COUNT(CASE WHEN p.is_correct = true THEN 1 END) as correct,
+        COALESCE(SUM(p.points_earned), 0) as points,
+        ROUND(
+          CASE 
+            WHEN COUNT(p.id) > 0 
+            THEN (COUNT(CASE WHEN p.is_correct = true THEN 1 END)::DECIMAL / COUNT(p.id)) * 100 
+            ELSE 0 
+          END, 1
+        ) as accuracy
+      FROM games g
+      LEFT JOIN picks p ON g.id = p.game_id AND p.user_id = $1
+      WHERE g.is_final = true AND g.season_id = (SELECT id FROM seasons WHERE is_active = TRUE LIMIT 1)
+      GROUP BY g.week
+      HAVING COUNT(p.id) > 0
+      ORDER BY g.week
+    `, [userId]);
+
+    // Get favorite teams (most picked)
+    const favoriteTeamsResult = await db.query(`
+      SELECT 
+        t.name,
+        t.abbreviation,
+        COUNT(p.id) as pick_count,
+        COUNT(CASE WHEN p.is_correct = true THEN 1 END) as correct_count,
+        ROUND(
+          CASE 
+            WHEN COUNT(p.id) > 0 
+            THEN (COUNT(CASE WHEN p.is_correct = true THEN 1 END)::DECIMAL / COUNT(p.id)) * 100 
+            ELSE 0 
+          END, 1
+        ) as accuracy
+      FROM picks p
+      JOIN teams t ON p.picked_team_id = t.id
+      JOIN games g ON p.game_id = g.id AND g.is_final = true
+      WHERE p.user_id = $1 AND g.season_id = (SELECT id FROM seasons WHERE is_active = TRUE LIMIT 1)
+      GROUP BY t.id, t.name, t.abbreviation
+      ORDER BY pick_count DESC, accuracy DESC
+      LIMIT 5
+    `, [userId]);
+
+    const response = {
+      totalPoints: parseInt(userStats.total_points),
+      totalPicks: parseInt(userStats.total_picks),
+      correctPicks: parseInt(userStats.correct_picks),
+      accuracyPercentage: parseFloat(userStats.accuracy_percentage),
+      weeksParticipated: parseInt(userStats.weeks_participated),
+      weeklyBreakdown: weeklyResult.rows.map(week => ({
+        week: week.week,
+        picks: parseInt(week.picks),
+        correct: parseInt(week.correct),
+        points: parseInt(week.points),
+        accuracy: parseFloat(week.accuracy)
+      })),
+      favoriteTeams: favoriteTeamsResult.rows.map(team => ({
+        name: team.name,
+        abbreviation: team.abbreviation,
+        pickCount: parseInt(team.pick_count),
+        correctCount: parseInt(team.correct_count),
+        accuracy: parseFloat(team.accuracy)
+      }))
+    };
+
+    res.json(response);
+  } catch (error) {
+    console.error('Error fetching user stats:', error);
+    res.status(500).json({ error: 'Failed to fetch user stats' });
+  }
+});
+
+// Get user's pick results showing which picks were correct/incorrect
+app.get('/api/picks/results/:userId', async (req, res) => {
+  try {
+    const userId = parseInt(req.params.userId);
+    const authHeader = req.headers.authorization;
+    
+    if (!authHeader) {
+      return res.status(401).json({ error: 'No authorization header' });
+    }
+
+    const result = await db.query(`
+      SELECT 
+        p.id as pick_id,
+        p.is_correct,
+        p.points_earned,
+        g.id as game_id,
+        g.week,
+        g.game_time,
+        g.home_score,
+        g.away_score,
+        g.is_final,
+        ht.name as home_team_name,
+        ht.abbreviation as home_team_abbr,
+        at.name as away_team_name,
+        at.abbreviation as away_team_abbr,
+        pt.name as picked_team_name,
+        pt.abbreviation as picked_team_abbr,
+        p.picked_team_id,
+        g.home_team_id,
+        g.away_team_id,
+        ht.division as home_division,
+        at.division as away_division
+      FROM picks p
+      JOIN games g ON p.game_id = g.id
+      JOIN teams ht ON g.home_team_id = ht.id
+      JOIN teams at ON g.away_team_id = at.id
+      JOIN teams pt ON p.picked_team_id = pt.id
+      WHERE p.user_id = $1 AND g.is_final = true
+      AND g.season_id = (SELECT id FROM seasons WHERE is_active = TRUE LIMIT 1)
+      ORDER BY g.week DESC, g.game_time DESC
+      LIMIT 50
+    `, [userId]);
+
+    const pickResults = result.rows.map(pick => ({
+      pickId: pick.pick_id,
+      gameId: pick.game_id,
+      week: pick.week,
+      gameTime: pick.game_time,
+      homeTeam: {
+        name: pick.home_team_name,
+        abbr: pick.home_team_abbr,
+        score: pick.home_score
+      },
+      awayTeam: {
+        name: pick.away_team_name,
+        abbr: pick.away_team_abbr,
+        score: pick.away_score
+      },
+      pickedTeam: {
+        name: pick.picked_team_name,
+        abbr: pick.picked_team_abbr,
+        id: pick.picked_team_id
+      },
+      isCorrect: pick.is_correct,
+      pointsEarned: pick.points_earned,
+      wasAfcWest: (() => {
+        const afcWestTeams = ['DEN', 'KC', 'LV', 'LAC'];
+        return (afcWestTeams.includes(pick.home_team_abbr) || afcWestTeams.includes(pick.away_team_abbr));
+      })(),
+      finalScore: `${pick.away_team_abbr} ${pick.away_score} - ${pick.home_score} ${pick.home_team_abbr}`,
+      winner: pick.home_score > pick.away_score ? 'home' : 'away'
+    }));
+
+    res.json(pickResults);
+  } catch (error) {
+    console.error('Error fetching pick results:', error);
+    res.status(500).json({ error: 'Failed to fetch pick results' });
+  }
+});
+
+// Admin endpoint to clear user's picks and reset game data
+app.post('/api/admin/clear-picks/:userId', async (req, res) => {
+  try {
+    const userId = parseInt(req.params.userId);
+    const { week } = req.body;
+    
+    console.log(`🗑️ Clearing picks for user ${userId}...`);
+    
+    if (week) {
+      // Clear picks for specific week
+      const picksResult = await db.query(`
+        DELETE FROM picks p
+        USING games g
+        WHERE p.game_id = g.id 
+        AND p.user_id = $1 
+        AND g.week = $2
+        AND g.season_id = (SELECT id FROM seasons WHERE is_active = TRUE LIMIT 1)
+      `, [userId, parseInt(week)]);
+      
+      // Reset games for that week
+      await db.query(`
+        UPDATE games 
+        SET home_score = NULL, away_score = NULL, is_final = false 
+        WHERE week = $1 
+        AND season_id = (SELECT id FROM seasons WHERE is_active = TRUE LIMIT 1)
+      `, [parseInt(week)]);
+      
+      console.log(`  Cleared ${picksResult.rowCount} picks for Week ${week}`);
+      
+      res.json({
+        message: `Cleared Week ${week} data`,
+        picksCleared: picksResult.rowCount,
+        gamesReset: true
+      });
+    } else {
+      // Clear all picks for user
+      const picksResult = await db.query(`
+        DELETE FROM picks p
+        USING games g
+        WHERE p.game_id = g.id 
+        AND p.user_id = $1
+        AND g.season_id = (SELECT id FROM seasons WHERE is_active = TRUE LIMIT 1)
+      `, [userId]);
+      
+      // Reset all games
+      await db.query(`
+        UPDATE games 
+        SET home_score = NULL, away_score = NULL, is_final = false 
+        WHERE season_id = (SELECT id FROM seasons WHERE is_active = TRUE LIMIT 1)
+      `);
+      
+      console.log(`  Cleared all ${picksResult.rowCount} picks for user ${userId}`);
+      
+      res.json({
+        message: 'Cleared all season data',
+        picksCleared: picksResult.rowCount,
+        gamesReset: true
+      });
+    }
+  } catch (error) {
+    console.error('Error clearing picks:', error);
+    res.status(500).json({ error: 'Failed to clear picks' });
+  }
+});
+
+// Admin endpoint to simulate game completion
+app.post('/api/admin/complete-games', async (req, res) => {
+  try {
+    const { week } = req.body;
+    const targetWeek = week || 1;
+    
+    console.log(`🎮 Simulating completion of Week ${targetWeek} games...`);
+    
+    // Get all games for the specified week that aren't final yet
+    const gamesResult = await db.query(`
+      SELECT g.id, g.home_team_id, g.away_team_id, ht.abbreviation as home_abbr, at.abbreviation as away_abbr
+      FROM games g
+      JOIN teams ht ON g.home_team_id = ht.id
+      JOIN teams at ON g.away_team_id = at.id
+      WHERE g.week = $1 AND g.is_final = false
+      AND g.season_id = (SELECT id FROM seasons WHERE is_active = TRUE LIMIT 1)
+    `, [targetWeek]);
+    
+    const games = gamesResult.rows;
+    let gamesCompleted = 0;
+    
+    for (const game of games) {
+      // Generate random realistic NFL scores (7-49 points)
+      const homeScore = Math.floor(Math.random() * 42) + 7;  // 7-49
+      const awayScore = Math.floor(Math.random() * 42) + 7;  // 7-49
+      
+      // Update game with final scores
+      await db.query(`
+        UPDATE games 
+        SET home_score = $1, away_score = $2, is_final = true 
+        WHERE id = $3
+      `, [homeScore, awayScore, game.id]);
+      
+      console.log(`  ${game.away_abbr} ${awayScore} - ${homeScore} ${game.home_abbr}`);
+      gamesCompleted++;
+    }
+    
+    // Now calculate points for all picks on completed games
+    console.log(`🔄 Calculating points for all picks on completed games...`);
+    
+    // Get all picks for completed games in this week
+    const picksResult = await db.query(`
+      SELECT 
+        p.id as pick_id,
+        p.user_id,
+        p.game_id,
+        p.picked_team_id,
+        g.home_team_id,
+        g.away_team_id,
+        g.home_score,
+        g.away_score,
+        ht.division as home_division,
+        at.division as away_division,
+        ht.abbreviation as home_team_abbr,
+        at.abbreviation as away_team_abbr,
+        ht.conference as home_conference,
+        at.conference as away_conference
+      FROM picks p
+      JOIN games g ON p.game_id = g.id
+      JOIN teams ht ON g.home_team_id = ht.id
+      JOIN teams at ON g.away_team_id = at.id
+      WHERE g.week = $1 AND g.is_final = true
+      AND g.season_id = (SELECT id FROM seasons WHERE is_active = TRUE LIMIT 1)
+    `, [targetWeek]);
+    
+    let picksProcessed = 0;
+    
+    for (const pick of picksResult.rows) {
+      // Determine winning team
+      const homeWon = pick.home_score > pick.away_score;
+      const awayWon = pick.away_score > pick.home_score;
+      const tie = pick.home_score === pick.away_score;
+      
+      let isCorrect = false;
+      if (!tie) {
+        if (homeWon && pick.picked_team_id === pick.home_team_id) {
+          isCorrect = true;
+        } else if (awayWon && pick.picked_team_id === pick.away_team_id) {
+          isCorrect = true;
+        }
+      }
+      
+      // Calculate points (AFC West bonus)
+      let pointsEarned = 0;
+      if (isCorrect) {
+        // AFC West teams: Broncos (DEN), Chiefs (KC), Raiders (LV), Chargers (LAC)
+        // Give 2 points for ANY game involving AFC West teams (not just division games)
+        const afcWestTeams = ['DEN', 'KC', 'LV', 'LAC'];
+        const isAfcWestGame = (
+          afcWestTeams.includes(pick.home_team_abbr) || 
+          afcWestTeams.includes(pick.away_team_abbr)
+        );
+        
+        console.log(`  Game: ${pick.away_team_abbr} @ ${pick.home_team_abbr} - AFC West: ${isAfcWestGame}`);
+        pointsEarned = isAfcWestGame ? 2 : 1;
+      }
+      
+      // Update pick with results
+      await db.query(`
+        UPDATE picks 
+        SET is_correct = $1, points_earned = $2, updated_at = CURRENT_TIMESTAMP
+        WHERE id = $3
+      `, [isCorrect, pointsEarned, pick.pick_id]);
+      
+      picksProcessed++;
+    }
+    
+    console.log(`✅ Completed ${gamesCompleted} games and processed ${picksProcessed} picks`);
+    
+    res.json({
+      message: `Successfully completed Week ${targetWeek} games`,
+      gamesCompleted,
+      picksProcessed,
+      week: targetWeek
+    });
+    
+  } catch (error) {
+    console.error('Error completing games:', error);
+    res.status(500).json({ error: 'Failed to complete games', details: error.message });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`🏈 Minimal Broncos Server running on port ${PORT}`);
   console.log('✅ Server started successfully!');

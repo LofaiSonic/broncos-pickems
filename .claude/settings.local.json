@@ -7,7 +7,13 @@
       "Bash(docker-compose:*)",
       "Bash(curl:*)",
       "Bash(echo)",
-      "Bash(docker logs:*)"
+      "Bash(docker logs:*)",
+      "Bash(npm start)",
+      "Bash(node:*)",
+      "Bash(pkill:*)",
+      "Bash(taskkill:*)",
+      "Bash(ls:*)",
+      "Bash(npm run build:*)"
     ],
     "deny": []
   }
