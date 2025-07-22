@@ -54,55 +54,136 @@ class AutomaticUpdateService {
 
   // Update injury reports from ESPN API
   async updateInjuries() {
-    console.log('🏥 Updating injury reports...');
+    console.log('🏥 Updating detailed injury reports using ESPN Core API...');
     
     try {
-      // Get all NFL teams
-      const teamsResult = await db.query('SELECT DISTINCT home_team_id as team_id FROM games UNION SELECT DISTINCT away_team_id as team_id FROM games');
-      const teamIds = teamsResult.rows.map(row => row.team_id);
+      // Database Team ID to ESPN Team ID mapping
+      const teamIdMapping = {
+        1: 22,  // Arizona Cardinals
+        2: 1,   // Atlanta Falcons
+        3: 2,   // Baltimore Ravens
+        4: 1,   // Buffalo Bills 
+        5: 29,  // Carolina Panthers
+        6: 3,   // Chicago Bears
+        7: 4,   // Cincinnati Bengals
+        8: 5,   // Cleveland Browns
+        9: 6,   // Dallas Cowboys
+        10: 7,  // Denver Broncos
+        11: 8,  // Detroit Lions
+        12: 9,  // Green Bay Packers
+        13: 34, // Houston Texans
+        14: 11, // Indianapolis Colts
+        15: 30, // Jacksonville Jaguars
+        16: 12, // Kansas City Chiefs
+        17: 13, // Las Vegas Raiders
+        18: 24, // Los Angeles Chargers
+        19: 25, // Los Angeles Rams
+        20: 15, // Miami Dolphins
+        21: 16, // Minnesota Vikings
+        22: 17, // New England Patriots
+        23: 18, // New Orleans Saints
+        24: 19, // New York Giants
+        25: 20, // New York Jets
+        26: 21, // Philadelphia Eagles
+        27: 23, // Pittsburgh Steelers
+        28: 26, // San Francisco 49ers
+        29: 14, // Seattle Seahawks
+        30: 27, // Tampa Bay Buccaneers
+        31: 10, // Tennessee Titans
+        32: 28  // Washington Commanders
+      };
       
       let totalUpdates = 0;
       
-      for (const teamId of teamIds) {
+      for (const [dbTeamId, espnTeamId] of Object.entries(teamIdMapping)) {
         try {
-          // Fetch injury data from ESPN
-          const response = await axios.get(`https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/${teamId}/injuries`);
-          const injuries = response.data.injuries || [];
+          console.log(`Fetching injuries for team ${dbTeamId} (ESPN ID: ${espnTeamId})...`);
           
-          // Clear existing injuries for this team
-          await db.query('DELETE FROM team_injuries WHERE team_id = $1', [teamId]);
+          // Use ESPN Core API for detailed injury data
+          const response = await axios.get(`https://sports.core.api.espn.com/v2/sports/football/leagues/nfl/teams/${espnTeamId}/injuries`);
+          const injuryRefs = response.data?.items || [];
           
-          // Insert new injury data
-          for (const injury of injuries.slice(0, 10)) { // Limit to 10 injuries per team
-            if (injury.athlete && injury.status) {
+          // Clear existing injuries for this team  
+          await db.query('DELETE FROM detailed_injuries WHERE team_id = $1', [dbTeamId]);
+          
+          // Process injury references (limit to 15 for performance)
+          const limitedRefs = injuryRefs.slice(0, 15);
+          
+          for (const injuryRef of limitedRefs) {
+            try {
+              // Fetch detailed injury data
+              const injuryDetailResponse = await axios.get(injuryRef.$ref);
+              const injuryData = injuryDetailResponse.data;
+              
+              // Fetch athlete data for player name and position
+              let playerName = 'Unknown Player';
+              let position = 'N/A';
+              
+              if (injuryData.athlete && injuryData.athlete.$ref) {
+                try {
+                  const athleteResponse = await axios.get(injuryData.athlete.$ref);
+                  playerName = athleteResponse.data.displayName || athleteResponse.data.fullName || 'Unknown Player';
+                  position = athleteResponse.data.position?.abbreviation || 'N/A';
+                } catch (athleteError) {
+                  console.warn(`Could not fetch athlete data: ${athleteError.message}`);
+                }
+              }
+              
+              // Insert detailed injury data
               await db.query(`
-                INSERT INTO team_injuries (team_id, player_name, position, status, injury_type, details, updated_at)
-                VALUES ($1, $2, $3, $4, $5, $6, NOW())
+                INSERT INTO detailed_injuries (
+                  injury_id, player_id, team_id, player_name, position, status,
+                  short_comment, long_comment, injury_type, injury_location,
+                  injury_detail, side, return_date, fantasy_status, injury_date, type_abbreviation
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+                ON CONFLICT (injury_id) DO UPDATE SET
+                  status = EXCLUDED.status,
+                  short_comment = EXCLUDED.short_comment,
+                  long_comment = EXCLUDED.long_comment,
+                  return_date = EXCLUDED.return_date,
+                  fantasy_status = EXCLUDED.fantasy_status,
+                  updated_at = CURRENT_TIMESTAMP
               `, [
-                teamId,
-                injury.athlete.displayName,
-                injury.athlete.position?.abbreviation || 'N/A',
-                injury.status.type,
-                injury.classifications?.[0]?.name || 'Unknown',
-                injury.details || ''
+                injuryData.id,
+                injuryData.athlete?.$ref?.split('/').slice(-1)[0] || null,
+                dbTeamId,
+                playerName,
+                position,
+                injuryData.status || 'Unknown',
+                injuryData.shortComment || '',
+                injuryData.longComment || '',
+                injuryData.details?.type || 'Unknown',
+                injuryData.details?.location || 'Unknown',
+                injuryData.details?.detail || 'Not Specified',
+                injuryData.details?.side || 'Not Specified',
+                injuryData.details?.returnDate || null,
+                injuryData.details?.fantasyStatus?.description || null,
+                injuryData.date,
+                injuryData.type?.abbreviation || 'O'
               ]);
               totalUpdates++;
+              
+              // Small delay between detailed API calls
+              await new Promise(resolve => setTimeout(resolve, 50));
+              
+            } catch (detailError) {
+              console.warn(`Error fetching injury detail: ${detailError.message}`);
             }
           }
           
-          // Small delay to be respectful to ESPN API
-          await new Promise(resolve => setTimeout(resolve, 100));
+          // Delay between team requests
+          await new Promise(resolve => setTimeout(resolve, 200));
           
         } catch (teamError) {
-          console.error(`Error updating injuries for team ${teamId}:`, teamError.message);
+          console.error(`Error updating injuries for team ${dbTeamId}:`, teamError.message);
         }
       }
       
-      console.log(`✅ Updated ${totalUpdates} injury reports`);
+      console.log(`✅ Updated ${totalUpdates} detailed injury reports`);
       return totalUpdates;
       
     } catch (error) {
-      console.error('❌ Error in injury updates:', error.message);
+      console.error('❌ Error in detailed injury updates:', error.message);
       throw error;
     }
   }

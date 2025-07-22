@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import axios from 'axios';
+import InjuryReportCard from '../components/InjuryReportCard';
 
 const PicksPage = () => {
   const { week } = useParams();
@@ -8,11 +9,12 @@ const PicksPage = () => {
   const [userPicks, setUserPicks] = useState({});
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [currentWeek, setCurrentWeek] = useState(week || '1');
+  const [currentWeek, setCurrentWeek] = useState(week || 'pre1');
+  const [seasonType, setSeasonType] = useState(1); // 1=Preseason, 2=Regular Season
 
   useEffect(() => {
     fetchGamesAndPicks();
-  }, [currentWeek]);
+  }, [currentWeek, seasonType]);
 
   const fetchGamesAndPicks = async () => {
     try {
@@ -21,6 +23,10 @@ const PicksPage = () => {
       
       // Transform the API response to match our component structure
       const gamesData = response.data.map(game => {
+        // Debug logging for injury data
+        console.log(`Game ${game.id}: Home ${game.home_team_name} has ${game.home_team_injuries?.length || 0} injuries`);
+        console.log(`Game ${game.id}: Away ${game.away_team_name} has ${game.away_team_injuries?.length || 0} injuries`);
+        
         return {
           id: game.id,
           week: game.week,
@@ -146,6 +152,45 @@ const PicksPage = () => {
     });
   };
 
+  const getWeekDisplayName = (week, seasonType) => {
+    if (seasonType === 1) { // Preseason
+      switch (week) {
+        case 'pre1': return 'Hall of Fame Weekend';
+        case 'pre2': return 'Preseason Week 1';
+        case 'pre3': return 'Preseason Week 2';
+        case 'pre4': return 'Preseason Week 3';
+        default: return `Preseason ${week}`;
+      }
+    } else {
+      return `Week ${week}`;
+    }
+  };
+
+  const getSeasonTypeDisplayName = (seasonType) => {
+    switch (seasonType) {
+      case 1: return 'Preseason';
+      case 2: return 'Regular Season';
+      case 3: return 'Postseason';
+      default: return 'Season';
+    }
+  };
+
+  const getAvailableWeeks = (seasonType) => {
+    if (seasonType === 1) { // Preseason
+      return [
+        { value: 'pre1', label: 'HOF Weekend' },
+        { value: 'pre2', label: 'Pre Wk 1' },
+        { value: 'pre3', label: 'Pre Wk 2' },
+        { value: 'pre4', label: 'Pre Wk 3' }
+      ];
+    } else { // Regular season
+      return Array.from({ length: 18 }, (_, i) => ({
+        value: (i + 1).toString(),
+        label: `Week ${i + 1}`
+      }));
+    }
+  };
+
   const isGameLocked = (game) => {
     // Disable locking for testing - always return false
     return false;
@@ -160,8 +205,7 @@ const PicksPage = () => {
     let className = `w-full p-8 rounded-lg border-2 text-center transition-all `;
     let styles = {
       minHeight: '160px',
-      height: '100%',
-      width: '300px'
+      height: '100%'
     };
     
     if (isGameCompleted && isSelected) {
@@ -211,27 +255,68 @@ const PicksPage = () => {
   return (
     <div className="container mt-lg" style={{ maxWidth: '1400px' }}>
       <div className="mb-lg">
-        <h1 className="text-2xl font-bold mb-sm">Week {currentWeek} Picks</h1>
+        <h1 className="text-2xl font-bold mb-sm">
+          {getWeekDisplayName(currentWeek, seasonType)} Picks
+        </h1>
         <p className="text-gray-600">
-          Select your picks for each game. Remember, picks lock when games start!
+          Select your picks for each game. {seasonType === 1 ? 'Preseason games are great for testing!' : 'Remember, picks lock when games start!'}
         </p>
       </div>
 
+      {/* Season Type Toggle */}
+      <div className="flex justify-center gap-2 mb-6">
+        <button
+          onClick={() => {
+            setSeasonType(1);
+            setCurrentWeek('pre1'); // Start with Hall of Fame Weekend
+          }}
+          className={`btn ${seasonType === 1 ? 'btn-primary' : 'btn-outline'}`}
+        >
+          🏈 Preseason
+        </button>
+        <button
+          onClick={() => {
+            setSeasonType(2);
+            setCurrentWeek('1'); // Start with Week 1
+          }}
+          className={`btn ${seasonType === 2 ? 'btn-primary' : 'btn-outline'}`}
+        >
+          📅 Regular Season
+        </button>
+      </div>
+
       {/* Week Navigation */}
-      <div className="flex justify-center gap-sm mb-lg">
-        {[...Array(18)].map((_, i) => (
+      <div className="flex flex-wrap justify-center gap-sm mb-lg">
+        {getAvailableWeeks(seasonType).map((week) => (
           <button
-            key={i + 1}
-            onClick={() => setCurrentWeek((i + 1).toString())}
+            key={week.value}
+            onClick={() => setCurrentWeek(week.value.toString())}
             className={`btn btn-sm ${
-              currentWeek === (i + 1).toString() 
+              currentWeek === week.value.toString() 
                 ? 'btn-primary' 
                 : 'btn-outline'
             }`}
           >
-            {i + 1}
+            {week.label}
           </button>
         ))}
+      </div>
+
+      {/* Season Type Info */}
+      <div className={`text-center mb-6 p-3 rounded-lg ${
+        seasonType === 1 
+          ? 'bg-blue-50 border border-blue-200 text-blue-800' 
+          : 'bg-green-50 border border-green-200 text-green-800'
+      }`}>
+        <div className="font-semibold">
+          {getSeasonTypeDisplayName(seasonType)} - {getWeekDisplayName(currentWeek, seasonType)}
+        </div>
+        <div className="text-sm mt-1">
+          {seasonType === 1 
+            ? 'Preseason games are perfect for testing the system with real users before the regular season begins!'
+            : 'Regular season games count towards your final standings and season rankings.'
+          }
+        </div>
       </div>
 
       {/* Games Grid */}
@@ -241,71 +326,16 @@ const PicksPage = () => {
           const locked = isGameLocked(game);
           
           return (
-            <div key={game.id} className={`card ${locked ? 'opacity-75' : ''}`}>
+            <div key={game.id} className={`card ${locked ? 'opacity-75' : ''}`} style={{minWidth: '300px', width: '100%'}}>
               {locked && (
                 <div className="text-center text-sm text-red-600 font-semibold mb-md">
                   🔒 LOCKED
                 </div>
               )}
 
-              {/* Teams */}
-              <div className="grid grid-cols-2 gap-sm">
-                {/* Away Team */}
-                <div>
-                  {(() => {
-                    const { className, styles } = getTeamButtonStyling(game, game.awayTeam.id, userPick);
-                    return (
-                      <button
-                        onClick={() => {
-                          if (!locked) handlePickChange(game.id, game.awayTeam.id);
-                        }}
-                        disabled={locked}
-                        className={className}
-                        style={styles}
-                      >
-                        <div className="text-sm text-gray-500 font-medium mb-2">@ AWAY</div>
-                        <div className="text-xl font-bold">
-                          {game.awayTeam.abbreviation}
-                        </div>
-                        <div className="text-base text-gray-600">
-                          {game.awayTeam.name}
-                        </div>
-                        <div className="text-sm text-gray-500 mt-2">(0-0)</div>
-                        {game.awayTeam.score !== null && (
-                          <div className="text-xl font-bold mt-2">
-                            {game.awayTeam.score}
-                          </div>
-                        )}
-                      </button>
-                    );
-                  })()}
-                  
-                  {/* Away Team Injuries */}
-                  <div className="mt-4 p-4 bg-red-50 rounded-md w-full">
-                    <div className="text-sm font-semibold text-red-800 mb-2">🏥 INJURIES</div>
-                    <div className="text-xs text-red-700">
-                      {(() => {
-                        if (!game.awayTeamInjuries || game.awayTeamInjuries.length === 0) {
-                          return 'No injuries reported';
-                        }
-                        
-                        try {
-                          return game.awayTeamInjuries.slice(0, 2).map(injury => {
-                            if (!injury || !injury.playerName || !injury.status) {
-                              return 'Injury data incomplete';
-                            }
-                            return `${injury.playerName} (${injury.position || 'N/A'}) - ${injury.status}`;
-                          }).join(', ');
-                        } catch (error) {
-                          console.error('Error processing away team injuries:', error);
-                          return 'Error loading injury data';
-                        }
-                      })()}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Home Team */}
+              {/* Teams with Date in Middle */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-sm items-start">
+                {/* Home Team (Left) */}
                 <div>
                   {(() => {
                     const { className, styles } = getTeamButtonStyling(game, game.homeTeam.id, userPick);
@@ -336,70 +366,89 @@ const PicksPage = () => {
                   })()}
                   
                   {/* Home Team Injuries */}
-                  <div className="mt-4 p-4 bg-red-50 rounded-md w-full">
-                    <div className="text-sm font-semibold text-red-800 mb-2">🏥 INJURIES</div>
-                    <div className="text-xs text-red-700">
-                      {(() => {
-                        if (!game.homeTeamInjuries || game.homeTeamInjuries.length === 0) {
-                          return 'No injuries reported';
-                        }
-                        
-                        try {
-                          return game.homeTeamInjuries.slice(0, 2).map(injury => {
-                            if (!injury || !injury.playerName || !injury.status) {
-                              return 'Injury data incomplete';
-                            }
-                            return `${injury.playerName} (${injury.position || 'N/A'}) - ${injury.status}`;
-                          }).join(', ');
-                        } catch (error) {
-                          console.error('Error processing home team injuries:', error);
-                          return 'Error loading injury data';
-                        }
-                      })()}
-                    </div>
-                  </div>
+                  <InjuryReportCard 
+                    injuries={game.homeTeamInjuries} 
+                    teamName={game.homeTeam.name}
+                    teamType="home"
+                  />
                 </div>
-              </div>
 
-              {/* Game Details & Betting Info */}
-              <div className="clear-both mt-xl space-y-2" style={{ marginTop: '4rem' }}>
-                {/* Betting Odds */}
-                {(game.spread || game.overUnder) && (
-                  <div className="bg-blue-50 p-6 rounded-md text-center">
-                    <div className="text-sm font-semibold text-blue-800 mb-3">📊 BETTING ODDS</div>
-                    <div className="space-y-1 text-sm">
-                      {game.spread && (
-                        <div className="font-medium">
-                          <span className="text-blue-700">
+                {/* Game Date/Time (Center) */}
+                <div className="bg-gray-50 rounded-lg border border-gray-200 p-4" style={{display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', height: 'fit-content'}}>
+                  <div className="text-2xl font-bold text-gray-500" style={{marginBottom: '16px'}}>
+                    VS
+                  </div>
+                  
+                  <div style={{marginBottom: '16px'}}>
+                    {game.isFinal ? (
+                      <div className="text-green-600 font-bold text-sm bg-green-100 px-2 py-1 rounded">
+                        ✅ FINAL
+                      </div>
+                    ) : (
+                      <div className="text-xs text-gray-700 font-medium leading-tight">
+                        {formatGameTime(game.gameTime)}
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Betting Odds */}
+                  {(game.spread || game.overUnder) && (
+                    <div style={{textAlign: 'center'}}>
+                      <div className="text-xs font-semibold text-blue-800" style={{marginBottom: '8px'}}>📊 ODDS</div>
+                      <div style={{display: 'flex', flexDirection: 'column', gap: '4px'}}>
+                        {game.spread && (
+                          <div className="font-medium text-blue-700 text-xs">
                             {game.spread > 0 
                               ? `${game.awayTeam.abbreviation} +${game.spread}` 
                               : `${game.homeTeam.abbreviation} ${game.spread}`}
-                          </span>
-                          <span className="text-gray-600 text-xs ml-1">
-                            ({game.spread < 0 ? `${game.homeTeam.abbreviation} favored` : `${game.awayTeam.abbreviation} favored`})
-                          </span>
-                        </div>
-                      )}
-                      {game.overUnder && (
-                        <div className="font-medium">
-                          Over/Under: <span className="text-blue-700">{game.overUnder}</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-                
-                {/* Game Status */}
-                <div className="text-center text-sm">
-                  {game.isFinal ? (
-                    <div className="text-green-600 font-semibold bg-green-100 px-3 py-1 rounded-full inline-block">
-                      ✅ FINAL
-                    </div>
-                  ) : (
-                    <div className="text-blue-600 font-medium">
-                      🕐 {formatGameTime(game.gameTime)}
+                          </div>
+                        )}
+                        {game.overUnder && (
+                          <div className="font-medium text-blue-700 text-xs">
+                            O/U: {game.overUnder}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   )}
+                </div>
+
+                {/* Away Team (Right) */}
+                <div>
+                  {(() => {
+                    const { className, styles } = getTeamButtonStyling(game, game.awayTeam.id, userPick);
+                    return (
+                      <button
+                        onClick={() => {
+                          if (!locked) handlePickChange(game.id, game.awayTeam.id);
+                        }}
+                        disabled={locked}
+                        className={className}
+                        style={styles}
+                      >
+                        <div className="text-sm text-gray-500 font-medium mb-2">@ AWAY</div>
+                        <div className="text-xl font-bold">
+                          {game.awayTeam.abbreviation}
+                        </div>
+                        <div className="text-base text-gray-600">
+                          {game.awayTeam.name}
+                        </div>
+                        <div className="text-sm text-gray-500 mt-2">(0-0)</div>
+                        {game.awayTeam.score !== null && (
+                          <div className="text-xl font-bold mt-2">
+                            {game.awayTeam.score}
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })()}
+                  
+                  {/* Away Team Injuries */}
+                  <InjuryReportCard 
+                    injuries={game.awayTeamInjuries} 
+                    teamName={game.awayTeam.name}
+                    teamType="away"
+                  />
                 </div>
               </div>
             </div>
