@@ -334,7 +334,7 @@ const PicksPage = () => {
               )}
 
               {/* Teams with Date in Middle */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-sm items-start">
+              <div className="grid grid-cols-3 gap-sm items-start">
                 {/* Home Team (Left) */}
                 <div>
                   {(() => {
