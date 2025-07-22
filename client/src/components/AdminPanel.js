@@ -5,6 +5,7 @@ import AutoUpdatesPanel from './AutoUpdatesPanel';
 const AdminPanel = () => {
   const [activeTab, setActiveTab] = useState('updates');
   const [processing, setProcessing] = useState(false);
+  const [importResults, setImportResults] = useState(null);
 
   const handleCompleteGames = async () => {
     if (!window.confirm('This will simulate game completions with random scores. Continue?')) {
@@ -57,9 +58,149 @@ const AdminPanel = () => {
     }
   };
 
+  const handleImportPreseason = async () => {
+    if (!window.confirm('This will import all 2025 preseason games from ESPN API. This may take several minutes. Continue?')) {
+      return;
+    }
+
+    try {
+      setProcessing(true);
+      setImportResults(null);
+      console.log('🏈 Starting preseason import...');
+      
+      const response = await axios.post('/api/admin/import/preseason');
+      setImportResults({
+        type: 'preseason',
+        success: true,
+        ...response.data
+      });
+      
+      alert(`✅ Successfully imported ${response.data.gamesImported} preseason games!`);
+    } catch (error) {
+      console.error('Error importing preseason:', error);
+      setImportResults({
+        type: 'preseason',
+        success: false,
+        error: error.response?.data?.details || error.message
+      });
+      alert('Error importing preseason games. Check console for details.');
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const handleImportRegularSeason = async () => {
+    if (!window.confirm('This will import all 2025 regular season games from ESPN API. This may take several minutes. Continue?')) {
+      return;
+    }
+
+    try {
+      setProcessing(true);
+      setImportResults(null);
+      console.log('🏈 Starting regular season import...');
+      
+      const response = await axios.post('/api/admin/import/regular-season');
+      setImportResults({
+        type: 'regular-season',
+        success: true,
+        ...response.data
+      });
+      
+      alert(`✅ Successfully imported ${response.data.gamesImported} regular season games!`);
+    } catch (error) {
+      console.error('Error importing regular season:', error);
+      setImportResults({
+        type: 'regular-season',
+        success: false,
+        error: error.response?.data?.details || error.message
+      });
+      alert('Error importing regular season games. Check console for details.');
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const handleSetup2025Season = async () => {
+    if (!window.confirm('This will automatically update your database and import ALL 2025 season games. No manual migration needed! This may take 5-10 minutes. Continue?')) {
+      return;
+    }
+
+    try {
+      setProcessing(true);
+      setImportResults(null);
+      console.log('🚀 Starting one-click 2025 season setup...');
+      
+      const response = await axios.post('/api/admin/setup-2025-season');
+      setImportResults({
+        type: 'setup-2025',
+        success: true,
+        ...response.data
+      });
+      
+      alert(`✅ 2025 Season Ready!\n\n${response.data.message}\n\nPreseason: ${response.data.preseasonGames} games\nRegular Season: ${response.data.regularSeasonGames} games\nTotal: ${response.data.totalGames} games`);
+    } catch (error) {
+      console.error('Error setting up 2025 season:', error);
+      setImportResults({
+        type: 'setup-2025',
+        success: false,
+        error: error.response?.data?.details || error.message
+      });
+      alert('Error setting up 2025 season. Check console for details.');
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const handleImportAll2025 = async () => {
+    if (!window.confirm('This will import ALL 2025 season games (preseason + regular season) from ESPN API. This may take 10+ minutes. Continue?')) {
+      return;
+    }
+
+    try {
+      setProcessing(true);
+      setImportResults(null);
+      console.log('🚀 Starting complete 2025 season import...');
+      
+      const response = await axios.post('/api/admin/import/all-2025');
+      setImportResults({
+        type: 'all-2025',
+        success: true,
+        ...response.data
+      });
+      
+      alert(`✅ Successfully imported complete 2025 season!\nPreseason: ${response.data.preseasonGames} games\nRegular Season: ${response.data.regularSeasonGames} games\nTotal: ${response.data.totalGames} games`);
+    } catch (error) {
+      console.error('Error importing 2025 season:', error);
+      setImportResults({
+        type: 'all-2025',
+        success: false,
+        error: error.response?.data?.details || error.message
+      });
+      alert('Error importing 2025 season. Check console for details.');
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const handleUpdateLiveScores = async () => {
+    try {
+      setProcessing(true);
+      console.log('📊 Updating live scores...');
+      
+      const response = await axios.post('/api/admin/update/live-scores');
+      alert(`✅ Updated ${response.data.gamesUpdated} live games`);
+    } catch (error) {
+      console.error('Error updating live scores:', error);
+      alert('Error updating live scores. Check console for details.');
+    } finally {
+      setProcessing(false);
+    }
+  };
+
   const tabs = [
     { key: 'updates', label: 'Auto Updates', icon: '🤖' },
-    { key: 'games', label: 'Game Management', icon: '🏈' },
+    { key: 'season2025', label: '2025 Season', icon: '🏈' },
+    { key: 'games', label: 'Game Management', icon: '⚙️' },
     { key: 'data', label: 'Data Management', icon: '📊' }
   ];
 
@@ -90,6 +231,134 @@ const AdminPanel = () => {
         {/* Tab Content */}
         <div>
           {activeTab === 'updates' && <AutoUpdatesPanel />}
+          
+          {activeTab === 'season2025' && (
+            <div className="space-y-6">
+              <h3 className="text-lg font-semibold">2025-2026 NFL Season Data Import</h3>
+              <p className="text-gray-600">
+                Import real 2025 NFL season data including preseason games for user testing. 
+                This connects to ESPN API to get live game schedules, teams, and betting data.
+              </p>
+              
+              {/* Import Results Display */}
+              {importResults && (
+                <div className={`p-4 rounded-lg ${importResults.success ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
+                  <h4 className={`font-semibold ${importResults.success ? 'text-green-800' : 'text-red-800'}`}>
+                    {importResults.success ? '✅ Import Successful' : '❌ Import Failed'}
+                  </h4>
+                  {importResults.success ? (
+                    <div className="text-sm text-green-700 mt-2">
+                      <p><strong>Type:</strong> {importResults.type}</p>
+                      {importResults.totalGames && <p><strong>Total Games:</strong> {importResults.totalGames}</p>}
+                      {importResults.preseasonGames && <p><strong>Preseason:</strong> {importResults.preseasonGames} games</p>}
+                      {importResults.regularSeasonGames && <p><strong>Regular Season:</strong> {importResults.regularSeasonGames} games</p>}
+                      {importResults.gamesImported && <p><strong>Games Imported:</strong> {importResults.gamesImported}</p>}
+                      <p><strong>Message:</strong> {importResults.message}</p>
+                    </div>
+                  ) : (
+                    <div className="text-sm text-red-700 mt-2">
+                      <p><strong>Error:</strong> {importResults.error}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+              
+              {/* One-Click Setup */}
+              <div className="mb-6 p-6 bg-gradient-to-r from-green-50 to-blue-50 border-2 border-green-200 rounded-lg">
+                <h4 className="font-bold text-lg mb-3 text-green-800">🚀 One-Click Setup (Recommended)</h4>
+                <p className="text-sm text-green-700 mb-4">
+                  Automatically updates your database schema and imports all 2025 season games. 
+                  No manual migrations needed - everything is handled for you!
+                </p>
+                <button
+                  onClick={handleSetup2025Season}
+                  disabled={processing}
+                  className={`btn btn-primary btn-lg w-full ${processing ? 'opacity-50' : ''}`}
+                >
+                  {processing ? 'Setting up 2025 Season...' : '🏈 Setup 2025 NFL Season'}
+                </button>
+              </div>
+
+              {/* Advanced Import Controls */}
+              <details className="mb-6">
+                <summary className="cursor-pointer text-gray-600 hover:text-gray-800 font-medium">
+                  🔧 Advanced Import Options (Optional)
+                </summary>
+                <div className="mt-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="p-4 border border-gray-200 rounded-lg">
+                      <h4 className="font-semibold mb-2">🏈 Preseason Import</h4>
+                      <p className="text-sm text-gray-600 mb-4">
+                        Import all 2025 preseason games including Hall of Fame Weekend and 3 preseason weeks
+                      </p>
+                      <button
+                        onClick={handleImportPreseason}
+                        disabled={processing}
+                        className={`btn btn-primary w-full ${processing ? 'opacity-50' : ''}`}
+                      >
+                        {processing ? 'Importing...' : 'Import Preseason'}
+                      </button>
+                    </div>
+
+                    <div className="p-4 border border-gray-200 rounded-lg">
+                      <h4 className="font-semibold mb-2">📅 Regular Season Import</h4>
+                      <p className="text-sm text-gray-600 mb-4">
+                        Import all 18 weeks of 2025 regular season games with full schedule data
+                      </p>
+                      <button
+                        onClick={handleImportRegularSeason}
+                        disabled={processing}
+                        className={`btn btn-primary w-full ${processing ? 'opacity-50' : ''}`}
+                      >
+                        {processing ? 'Importing...' : 'Import Regular Season'}
+                      </button>
+                    </div>
+
+                    <div className="p-4 border border-gray-200 rounded-lg">
+                      <h4 className="font-semibold mb-2">🚀 Complete Import</h4>
+                      <p className="text-sm text-gray-600 mb-4">
+                        Import the entire 2025 season (preseason + regular season) in one operation
+                      </p>
+                      <button
+                        onClick={handleImportAll2025}
+                        disabled={processing}
+                        className={`btn btn-primary w-full ${processing ? 'opacity-50' : ''}`}
+                      >
+                        {processing ? 'Importing...' : 'Import All 2025'}
+                      </button>
+                    </div>
+
+                    <div className="p-4 border border-gray-200 rounded-lg">
+                      <h4 className="font-semibold mb-2">📊 Live Score Update</h4>
+                      <p className="text-sm text-gray-600 mb-4">
+                        Update live scores and final results for current week games
+                      </p>
+                      <button
+                        onClick={handleUpdateLiveScores}
+                        disabled={processing}
+                        className={`btn btn-secondary w-full ${processing ? 'opacity-50' : ''}`}
+                      >
+                        {processing ? 'Updating...' : 'Update Live Scores'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </details>
+
+              {/* Important Notes */}
+              <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg">
+                <h4 className="font-semibold text-blue-800 mb-2">📋 Simple Setup Process</h4>
+                <ul className="text-sm text-blue-700 space-y-1">
+                  <li>• <strong>One-Click Setup</strong> automatically handles database updates and data import</li>
+                  <li>• <strong>No manual migrations</strong> required - everything is automated</li>
+                  <li>• <strong>Preseason weeks</strong> use negative numbers: -4 (HOF), -3 (Pre Wk 1), -2 (Pre Wk 2), -1 (Pre Wk 3)</li>
+                  <li>• <strong>Regular season</strong> uses weeks 1-18 as normal</li>
+                  <li>• <strong>Real ESPN data</strong> includes schedules, teams, betting odds, and injury reports</li>
+                  <li>• <strong>Automatic updates</strong> keep data synchronized with live NFL information</li>
+                </ul>
+              </div>
+            </div>
+          )}
           
           {activeTab === 'games' && (
             <div className="space-y-6">

@@ -8,6 +8,7 @@ import LeaderboardPage from './pages/LeaderboardPage';
 import ProfilePage from './pages/ProfilePage';
 import AuthSuccess from './pages/AuthSuccess';
 import ProtectedRoute from './components/ProtectedRoute';
+import InjuryTestPage from './components/InjuryTestPage';
 
 function App() {
   return (
@@ -36,6 +37,7 @@ function App() {
             />
             <Route path="/leaderboard" element={<LeaderboardPage />} />
             <Route path="/leaderboard/:week" element={<LeaderboardPage />} />
+            <Route path="/test/injuries" element={<InjuryTestPage />} />
             <Route
               path="/profile"
               element={
