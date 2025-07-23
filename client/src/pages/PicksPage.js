@@ -9,7 +9,6 @@ const PicksPage = () => {
   const [games, setGames] = useState([]);
   const [userPicks, setUserPicks] = useState({});
   const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
   const [currentWeek, setCurrentWeek] = useState(week || 'pre1');
   const [seasonType, setSeasonType] = useState(1); // 1=Preseason, 2=Regular Season
   
@@ -128,38 +127,6 @@ const PicksPage = () => {
     }
   };
 
-  const submitPick = async (gameId, teamId) => {
-    try {
-      await axios.post('/api/picks', {
-        gameId: parseInt(gameId),
-        pickedTeamId: teamId,
-        confidencePoints: 1
-      });
-    } catch (error) {
-      console.error('Error submitting pick:', error);
-      alert('Error submitting pick. Please try again.');
-    }
-  };
-
-  const submitPicks = async () => {
-    try {
-      setSubmitting(true);
-      
-      const picks = Object.entries(userPicks)
-        .filter(([_, pick]) => pick.pickedTeamId);
-
-      for (const [gameId, pick] of picks) {
-        await submitPick(gameId, pick.pickedTeamId);
-      }
-      
-      alert('All picks submitted successfully!');
-    } catch (error) {
-      console.error('Error submitting picks:', error);
-      alert('Error submitting picks. Please try again.');
-    } finally {
-      setSubmitting(false);
-    }
-  };
 
   const formatGameTime = (gameTime) => {
     return new Date(gameTime).toLocaleDateString('en-US', {
@@ -576,14 +543,37 @@ const PicksPage = () => {
                           </td>
                           
                           {/* Your Pick */}
-                          <td className="px-6 py-7 text-center align-middle" style={{
-                            border: '2px solid #FB4D00',
-                            borderRadius: '8px',
-                            margin: '4px',
-                            width: '180px'
-                          }}>
+                          <td 
+                            className="px-6 py-7 text-center align-middle"
+                            style={{
+                              border: '2px solid #FB4D00',
+                              borderRadius: '8px',
+                              margin: '4px',
+                              width: '180px',
+                              cursor: locked ? 'not-allowed' : 'pointer',
+                              opacity: locked ? 0.7 : 1,
+                              transition: 'all 0.2s ease'
+                            }}
+                            onClick={() => {
+                              if (!locked) {
+                                const gameIndex = games.findIndex(g => g.id === game.id);
+                                setModalGameIndex(gameIndex);
+                                setIsModalOpen(true);
+                              }
+                            }}
+                            onMouseEnter={(e) => {
+                              if (!locked) {
+                                e.currentTarget.style.transform = 'scale(1.05)';
+                                e.currentTarget.style.boxShadow = '0 4px 12px rgba(251,77,0,0.3)';
+                              }
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.transform = 'scale(1)';
+                              e.currentTarget.style.boxShadow = 'none';
+                            }}
+                          >
                             {userPick ? (
-                              <div className="flex items-center justify-center">
+                              <div className="flex items-center justify-center" title={locked ? "Game has started - picks are locked" : "Click to change your pick"}>
                                 <span className={`inline-flex items-center px-4 py-3 rounded-xl text-base font-bold border-2 ${
                                   game.isFinal && userPick.isCorrect
                                     ? ''
@@ -599,7 +589,8 @@ const PicksPage = () => {
                                   color: 'white',
                                   borderColor: '#FB4D00',
                                   boxShadow: '3px 3px 8px rgba(0,0,0,0.2), inset 1px 1px 3px rgba(255,255,255,0.2)',
-                                  textShadow: '1px 1px 2px rgba(0,0,0,0.5)'
+                                  textShadow: '1px 1px 2px rgba(0,0,0,0.5)',
+                                  pointerEvents: 'none'
                                 }}>
                                   {userPick.pickedTeamId === game.homeTeam.id ? game.homeTeam.abbreviation : game.awayTeam.abbreviation}
                                   {game.isFinal && (
@@ -610,7 +601,7 @@ const PicksPage = () => {
                                 </span>
                               </div>
                             ) : (
-                              <div className="text-2xl font-bold" style={{ color: '#FB4D00' }}>—</div>
+                              <div className="text-2xl font-bold" style={{ color: '#FB4D00', pointerEvents: 'none' }} title={locked ? "Game has started - picks are locked" : "Click to make your pick"}>—</div>
                             )}
                           </td>
                         </tr>
