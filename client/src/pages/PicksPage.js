@@ -83,6 +83,13 @@ const PicksPage = () => {
   };
 
   const handlePickChange = async (gameId, teamId) => {
+    // Check if game is locked before attempting to submit
+    const game = games.find(g => g.id === parseInt(gameId));
+    if (game && isGameLocked(game)) {
+      alert('This game has already started or ended. Picks are locked.');
+      return;
+    }
+
     // Update local state immediately for UI feedback
     setUserPicks(prev => ({
       ...prev,
@@ -102,6 +109,7 @@ const PicksPage = () => {
       });
     } catch (error) {
       console.error('Error submitting pick:', error);
+      
       // Revert the local state if the API call failed
       setUserPicks(prev => ({
         ...prev,
@@ -110,7 +118,13 @@ const PicksPage = () => {
           pickedTeamId: null
         }
       }));
-      alert('Error submitting pick. Please try again.');
+      
+      // Show specific error message if available
+      if (error.response?.status === 400 && error.response?.data?.error) {
+        alert(error.response.data.error);
+      } else {
+        alert('Error submitting pick. Please try again.');
+      }
     }
   };
 
@@ -228,9 +242,8 @@ const PicksPage = () => {
   };
 
   const isGameLocked = (game) => {
-    // Disable locking for testing - always return false
-    return false;
-    // Original logic: return game.picksLocked || new Date(game.gameTime) <= new Date();
+    // Game is locked if it's marked as locked OR if the game time has passed
+    return game.picksLocked || new Date(game.gameTime) <= new Date();
   };
 
   const getTeamButtonStyling = (game, teamId, userPick) => {

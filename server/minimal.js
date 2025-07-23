@@ -698,6 +698,32 @@ app.post('/api/picks', async (req, res) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const userId = decoded.userId;
     
+    // Check if the game is locked (picks_locked = true OR game_time has passed)
+    const gameCheck = await db.query(`
+      SELECT id, game_time, picks_locked, is_final
+      FROM games 
+      WHERE id = $1
+    `, [gameId]);
+    
+    if (gameCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Game not found' });
+    }
+    
+    const game = gameCheck.rows[0];
+    const gameTime = new Date(game.game_time);
+    const now = new Date();
+    
+    // Prevent picks if game is locked, has started, or is final
+    if (game.picks_locked || gameTime <= now || game.is_final) {
+      return res.status(400).json({ 
+        error: 'Picks are locked for this game. Game has already started or ended.',
+        gameTime: gameTime.toISOString(),
+        currentTime: now.toISOString(),
+        picksLocked: game.picks_locked,
+        isFinal: game.is_final
+      });
+    }
+    
     await db.query(`
       INSERT INTO picks (user_id, game_id, picked_team_id, confidence_points)
       VALUES ($1, $2, $3, $4)
