@@ -26,25 +26,26 @@ const Navbar = () => {
         borderTop: '2px solid rgba(255,255,255,0.2)'
       }}
     >
-      <div className="container">
-        <div className="flex justify-between items-center py-5">
+      <div className="container px-4 md:px-0">
+        <div className="flex justify-between items-center py-3 md:py-5">
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-3 no-underline">
-            <span className="text-3xl">🏈</span>
-            <div className="text-3xl font-black drop-shadow-lg" style={{ color: '#FFFFFF' }}>
-              Broncos Pickems
+          <Link to="/" className="flex items-center gap-2 md:gap-3 no-underline">
+            <span className="text-2xl md:text-3xl">🏈</span>
+            <div className="text-xl md:text-3xl font-black drop-shadow-lg" style={{ color: '#FFFFFF' }}>
+              <span className="hidden sm:inline">Broncos Pickems</span>
+              <span className="sm:hidden">Pickems</span>
             </div>
           </Link>
 
           {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center space-x-2">
+          <div className="hidden md:flex items-center space-x-1 lg:space-x-2">
             {navLinks.map(link => {
               if (link.requiresAuth && !isAuthenticated) return null;
               return (
                 <Link
                   key={link.path}
                   to={link.path}
-                  className={`px-8 py-4 font-bold text-lg no-underline transition-all duration-300 ${
+                  className={`px-4 lg:px-8 py-3 lg:py-4 font-bold text-base lg:text-lg no-underline transition-all duration-300 ${
                     isActive(link.path)
                       ? 'bg-gradient-to-b from-orange-400 to-orange-600 shadow-inner'
                       : 'bg-gradient-to-b from-blue-700 to-blue-900 hover:from-orange-500 hover:to-orange-700'
@@ -78,7 +79,7 @@ const Navbar = () => {
                 </Link>
                 <button
                   onClick={logout}
-                  className="px-6 py-3 font-bold transition-all duration-300 bg-gradient-to-b from-orange-400 to-orange-600 hover:from-orange-500 hover:to-orange-700"
+                  className="px-4 lg:px-6 py-2 lg:py-3 font-bold text-sm lg:text-base transition-all duration-300 bg-gradient-to-b from-orange-400 to-orange-600 hover:from-orange-500 hover:to-orange-700"
                   style={{
                     color: '#FFFFFF',
                     borderRadius: '8px',
@@ -95,7 +96,7 @@ const Navbar = () => {
             ) : (
               <button
                 onClick={loginWithReddit}
-                className="px-8 py-4 font-bold text-lg transition-all duration-300 bg-gradient-to-b from-orange-400 to-orange-600 hover:from-orange-500 hover:to-orange-700"
+                className="px-4 lg:px-8 py-3 lg:py-4 font-bold text-base lg:text-lg transition-all duration-300 bg-gradient-to-b from-orange-400 to-orange-600 hover:from-orange-500 hover:to-orange-700"
                 style={{
                   color: '#FFFFFF',
                   borderRadius: '8px',
