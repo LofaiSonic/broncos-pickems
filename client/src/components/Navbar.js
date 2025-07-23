@@ -26,8 +26,8 @@ const Navbar = () => {
         borderTop: '2px solid rgba(255,255,255,0.2)'
       }}
     >
-      <div className="container px-4 md:px-0">
-        <div className="flex justify-between items-center py-3 md:py-5">
+      <div className="container">
+        <div className="flex justify-between items-center py-3 md:py-5 px-4 md:px-0">
           {/* Logo */}
           <Link to="/" className="flex items-center gap-2 md:gap-3 no-underline">
             <span className="text-2xl md:text-3xl">🏈</span>
@@ -135,7 +135,7 @@ const Navbar = () => {
 
         {/* Mobile Navigation */}
         {isMenuOpen && (
-          <div className="md:hidden pb-6 pt-4 border-t-4" style={{ borderTopColor: '#FA4616' }}>
+          <div className="md:hidden pb-6 pt-4 px-4 border-t-4" style={{ borderTopColor: '#FA4616' }}>
             <div className="flex flex-col gap-2">
               {navLinks.map(link => {
                 if (link.requiresAuth && !isAuthenticated) return null;
