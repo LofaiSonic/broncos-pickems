@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import axios from 'axios';
 import InjuryReportCard from '../components/InjuryReportCard';
+import GamePickModal from '../components/GamePickModal';
 
 const PicksPage = () => {
   const { week } = useParams();
@@ -11,6 +12,10 @@ const PicksPage = () => {
   const [submitting, setSubmitting] = useState(false);
   const [currentWeek, setCurrentWeek] = useState(week || 'pre1');
   const [seasonType, setSeasonType] = useState(1); // 1=Preseason, 2=Regular Season
+  
+  // Modal state - default to open with first game
+  const [isModalOpen, setIsModalOpen] = useState(true);
+  const [modalGameIndex, setModalGameIndex] = useState(0);
 
   useEffect(() => {
     fetchGamesAndPicks();
@@ -46,6 +51,7 @@ const PicksPage = () => {
           },
           spread: game.spread,
           overUnder: game.over_under,
+          tvChannel: game.tv_channel,
           picksLocked: game.picks_locked,
           homeTeamInjuries: game.home_team_injuries || [],
           awayTeamInjuries: game.away_team_injuries || []
@@ -152,6 +158,36 @@ const PicksPage = () => {
     });
   };
 
+  const formatDateHeader = (date) => {
+    return new Date(date).toLocaleDateString('en-US', {
+      weekday: 'long',
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric'
+    });
+  };
+
+  const formatTimeOnly = (gameTime) => {
+    return new Date(gameTime).toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      timeZoneName: 'short'
+    });
+  };
+
+  // Group games by date
+  const groupGamesByDate = (games) => {
+    const grouped = {};
+    games.forEach(game => {
+      const dateKey = new Date(game.gameTime).toDateString();
+      if (!grouped[dateKey]) {
+        grouped[dateKey] = [];
+      }
+      grouped[dateKey].push(game);
+    });
+    return grouped;
+  };
+
   const getWeekDisplayName = (week, seasonType) => {
     if (seasonType === 1) { // Preseason
       switch (week) {
@@ -253,7 +289,7 @@ const PicksPage = () => {
   }
 
   return (
-    <div className="container mt-lg" style={{ maxWidth: '1400px' }}>
+    <div className="container mx-auto mt-lg px-4" style={{ maxWidth: '1200px' }}>
       <div className="mb-lg">
         <h1 className="text-2xl font-bold mb-sm">
           {getWeekDisplayName(currentWeek, seasonType)} Picks
@@ -319,156 +355,276 @@ const PicksPage = () => {
         </div>
       </div>
 
-      {/* Games Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-sm">
-        {games.map(game => {
-          const userPick = userPicks[game.id];
-          const locked = isGameLocked(game);
-          
-          return (
-            <div key={game.id} className={`card ${locked ? 'opacity-75' : ''}`} style={{minWidth: '300px', width: '100%'}}>
-              {locked && (
-                <div className="text-center text-sm text-red-600 font-semibold mb-md">
-                  🔒 LOCKED
-                </div>
-              )}
+      {/* Make Picks Button */}
+      {!isModalOpen && games.length > 0 && (
+        <div className="text-center mb-8">
+          <button
+            onClick={() => {
+              setModalGameIndex(0);
+              setIsModalOpen(true);
+            }}
+            className="btn btn-primary btn-lg px-8 py-4 text-lg font-bold" style={{
+              background: 'linear-gradient(135deg, #FB4D00 0%, #002244 100%)',
+              border: '3px solid #FB4D00',
+              borderRadius: '12px',
+              color: 'white',
+              textShadow: '2px 2px 4px rgba(0,0,0,0.5)',
+              boxShadow: '0 8px 16px rgba(251,77,0,0.3), inset 0 2px 4px rgba(255,255,255,0.2)',
+              transform: 'translateY(0)',
+              transition: 'all 0.2s ease'
+            }}
+            onMouseEnter={(e) => {
+              e.target.style.transform = 'translateY(-2px)';
+              e.target.style.boxShadow = '0 12px 24px rgba(251,77,0,0.4), inset 0 2px 4px rgba(255,255,255,0.2)';
+            }}
+            onMouseLeave={(e) => {
+              e.target.style.transform = 'translateY(0)';
+              e.target.style.boxShadow = '0 8px 16px rgba(251,77,0,0.3), inset 0 2px 4px rgba(255,255,255,0.2)';
+            }}
+          >
+            🏈 Make your picks!
+          </button>
+        </div>
+      )}
 
-              {/* Teams with Date in Middle */}
-              <div className="grid grid-cols-3 gap-sm items-start">
-                {/* Home Team (Left) */}
-                <div>
-                  {(() => {
-                    const { className, styles } = getTeamButtonStyling(game, game.homeTeam.id, userPick);
-                    return (
-                      <button
-                        onClick={() => {
-                          if (!locked) handlePickChange(game.id, game.homeTeam.id);
-                        }}
-                        disabled={locked}
-                        className={className}
-                        style={styles}
-                      >
-                        <div className="text-sm text-gray-500 font-medium mb-2">🏠 HOME</div>
-                        <div className="text-xl font-bold">
-                          {game.homeTeam.abbreviation}
-                        </div>
-                        <div className="text-base text-gray-600">
-                          {game.homeTeam.name}
-                        </div>
-                        <div className="text-sm text-gray-500 mt-2">(0-0)</div>
-                        {game.homeTeam.score !== null && (
-                          <div className="text-xl font-bold mt-2">
-                            {game.homeTeam.score}
-                          </div>
-                        )}
-                      </button>
-                    );
-                  })()}
-                  
-                  {/* Home Team Injuries */}
-                  <InjuryReportCard 
-                    injuries={game.homeTeamInjuries} 
-                    teamName={game.homeTeam.name}
-                    teamType="home"
-                  />
-                </div>
-
-                {/* Game Date/Time (Center) */}
-                <div className="bg-gray-50 rounded-lg border border-gray-200 p-4" style={{display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', height: 'fit-content'}}>
-                  <div className="text-2xl font-bold text-gray-500" style={{marginBottom: '16px'}}>
-                    VS
-                  </div>
-                  
-                  <div style={{marginBottom: '16px'}}>
-                    {game.isFinal ? (
-                      <div className="text-green-600 font-bold text-sm bg-green-100 px-2 py-1 rounded">
-                        ✅ FINAL
-                      </div>
-                    ) : (
-                      <div className="text-xs text-gray-700 font-medium leading-tight">
-                        {formatGameTime(game.gameTime)}
-                      </div>
-                    )}
-                  </div>
-                  
-                  {/* Betting Odds */}
-                  {(game.spread || game.overUnder) && (
-                    <div style={{textAlign: 'center'}}>
-                      <div className="text-xs font-semibold text-blue-800" style={{marginBottom: '8px'}}>📊 ODDS</div>
-                      <div style={{display: 'flex', flexDirection: 'column', gap: '4px'}}>
-                        {game.spread && (
-                          <div className="font-medium text-blue-700 text-xs">
-                            {game.spread > 0 
-                              ? `${game.awayTeam.abbreviation} +${game.spread}` 
-                              : `${game.homeTeam.abbreviation} ${game.spread}`}
-                          </div>
-                        )}
-                        {game.overUnder && (
-                          <div className="font-medium text-blue-700 text-xs">
-                            O/U: {game.overUnder}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Away Team (Right) */}
-                <div>
-                  {(() => {
-                    const { className, styles } = getTeamButtonStyling(game, game.awayTeam.id, userPick);
-                    return (
-                      <button
-                        onClick={() => {
-                          if (!locked) handlePickChange(game.id, game.awayTeam.id);
-                        }}
-                        disabled={locked}
-                        className={className}
-                        style={styles}
-                      >
-                        <div className="text-sm text-gray-500 font-medium mb-2">@ AWAY</div>
-                        <div className="text-xl font-bold">
-                          {game.awayTeam.abbreviation}
-                        </div>
-                        <div className="text-base text-gray-600">
-                          {game.awayTeam.name}
-                        </div>
-                        <div className="text-sm text-gray-500 mt-2">(0-0)</div>
-                        {game.awayTeam.score !== null && (
-                          <div className="text-xl font-bold mt-2">
-                            {game.awayTeam.score}
-                          </div>
-                        )}
-                      </button>
-                    );
-                  })()}
-                  
-                  {/* Away Team Injuries */}
-                  <InjuryReportCard 
-                    injuries={game.awayTeamInjuries} 
-                    teamName={game.awayTeam.name}
-                    teamType="away"
-                  />
-                </div>
+      {/* Main Game Display - NFL.com Style */}
+      {!isModalOpen && games.length > 0 && (
+        <div className="space-y-8">
+          {Object.entries(groupGamesByDate(games)).map(([dateKey, dateGames]) => (
+            <div key={dateKey} className="bg-white rounded-2xl shadow-2xl border-2 border-orange-200 overflow-hidden" style={{
+              background: 'linear-gradient(145deg, #ffffff, #f8fafc)',
+              boxShadow: '20px 20px 40px #d1d5db, -20px -20px 40px #ffffff'
+            }}>
+              {/* Date Header */}
+              <div className="px-8 py-5 rounded-t-2xl" style={{
+                background: 'linear-gradient(135deg, #FB4D00 0%, #002244 100%)',
+                boxShadow: 'inset 0 2px 4px rgba(255,255,255,0.2), inset 0 -2px 4px rgba(0,0,0,0.2)'
+              }}>
+                <h3 className="text-xl font-bold text-center" style={{
+                  color: '#FFFFFF',
+                  textShadow: '3px 3px 6px rgba(0,0,0,0.9), 1px 1px 3px rgba(0,0,0,0.8)'
+                }}>
+                  {formatDateHeader(dateGames[0].gameTime)}
+                </h3>
+              </div>
+              
+              {/* Games Table */}
+              <div className="flex justify-center p-4">
+                <table className="border-collapse rounded-xl" style={{
+                  borderSpacing: 0,
+                  border: '2px solid #FB4D00',
+                  borderRadius: '12px',
+                  background: 'linear-gradient(145deg, #ffffff, #fef7f0)',
+                  boxShadow: 'inset 2px 2px 5px rgba(251,77,0,0.1), inset -2px -2px 5px rgba(0,34,68,0.1)'
+                }}>
+                  <thead>
+                    <tr style={{
+                      background: 'linear-gradient(145deg, #002244, #003366)',
+                      boxShadow: 'inset 0 2px 4px rgba(255,255,255,0.1), inset 0 -2px 4px rgba(0,0,0,0.3)'
+                    }}>
+                      <th className="px-6 py-6 text-center text-sm font-bold uppercase tracking-wider" style={{
+                        border: '2px solid #FB4D00',
+                        borderRadius: '8px 0 0 0',
+                        color: '#FFFFFF',
+                        textShadow: '3px 3px 6px rgba(0,0,0,0.9), 1px 1px 3px rgba(0,0,0,0.8)',
+                        width: '140px'
+                      }}>Time</th>
+                      <th className="px-8 py-6 text-left text-sm font-bold uppercase tracking-wider" style={{
+                        border: '2px solid #FB4D00',
+                        color: '#FFFFFF',
+                        textShadow: '3px 3px 6px rgba(0,0,0,0.9), 1px 1px 3px rgba(0,0,0,0.8)',
+                        width: '300px'
+                      }}>Away Team</th>
+                      <th className="px-4 py-6 text-center text-sm font-bold uppercase tracking-wider" style={{
+                        border: '2px solid #FB4D00',
+                        color: '#FFFFFF',
+                        textShadow: '3px 3px 6px rgba(0,0,0,0.9), 1px 1px 3px rgba(0,0,0,0.8)',
+                        width: '80px'
+                      }}>@</th>
+                      <th className="px-8 py-6 text-left text-sm font-bold uppercase tracking-wider" style={{
+                        border: '2px solid #FB4D00',
+                        color: '#FFFFFF',
+                        textShadow: '3px 3px 6px rgba(0,0,0,0.9), 1px 1px 3px rgba(0,0,0,0.8)',
+                        width: '300px'
+                      }}>Home Team</th>
+                      <th className="px-6 py-6 text-center text-sm font-bold uppercase tracking-wider" style={{
+                        border: '2px solid #FB4D00',
+                        borderRadius: '0 8px 0 0',
+                        color: '#FFFFFF',
+                        textShadow: '3px 3px 6px rgba(0,0,0,0.9), 1px 1px 3px rgba(0,0,0,0.8)',
+                        width: '180px'
+                      }}>Your Pick</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {dateGames.map((game, index) => {
+                      const userPick = userPicks[game.id];
+                      const locked = isGameLocked(game);
+                      const isEvenRow = index % 2 === 0;
+                      
+                      return (
+                        <tr key={game.id} className={`${locked ? 'opacity-75' : ''} transition-all duration-300`} style={{
+                          background: isEvenRow 
+                            ? 'linear-gradient(145deg, #ffffff, #fef9f5)' 
+                            : 'linear-gradient(145deg, #fef9f5, #fed7cc)',
+                          boxShadow: isEvenRow 
+                            ? 'inset 1px 1px 3px rgba(251,77,0,0.05)' 
+                            : 'inset 1px 1px 3px rgba(251,77,0,0.1)'
+                        }} onMouseEnter={(e) => {
+                          e.target.parentElement.style.background = 'linear-gradient(145deg, #fef2e7, #fb9d7a)';
+                          e.target.parentElement.style.transform = 'scale(1.002)';
+                        }} onMouseLeave={(e) => {
+                          e.target.parentElement.style.background = isEvenRow 
+                            ? 'linear-gradient(145deg, #ffffff, #fef9f5)' 
+                            : 'linear-gradient(145deg, #fef9f5, #fed7cc)';
+                          e.target.parentElement.style.transform = 'scale(1)';
+                        }}>
+                          {/* Time */}
+                          <td className="px-6 py-7 text-center align-middle" style={{
+                            border: '2px solid #FB4D00',
+                            borderRadius: '8px',
+                            margin: '4px',
+                            width: '140px'
+                          }}>
+                            <div className="text-base font-bold">
+                              {game.isFinal ? (
+                                <span className="inline-block px-4 py-2 rounded-full text-sm font-bold border-2" style={{
+                                  background: 'linear-gradient(145deg, #10b981, #059669)',
+                                  color: 'white',
+                                  borderColor: '#065f46',
+                                  boxShadow: '2px 2px 6px rgba(16,185,129,0.3), inset 1px 1px 2px rgba(255,255,255,0.2)',
+                                  textShadow: '1px 1px 2px rgba(0,0,0,0.3)'
+                                }}>FINAL</span>
+                              ) : (
+                                <span className="font-bold" style={{ color: '#002244' }}>{formatTimeOnly(game.gameTime)}</span>
+                              )}
+                            </div>
+                          </td>
+                          
+                          {/* Away Team */}
+                          <td className="px-8 py-7 align-middle" style={{
+                            border: '2px solid #FB4D00',
+                            borderRadius: '8px',
+                            margin: '4px',
+                            width: '300px'
+                          }}>
+                            <div className="flex items-center justify-between">
+                              <div className="text-lg font-bold" style={{ color: '#002244' }}>
+                                {game.awayTeam.name}
+                              </div>
+                              {game.awayTeam.score !== null && (
+                                <div className="text-2xl font-black ml-6 px-3 py-1 rounded-lg" style={{
+                                  color: '#FB4D00',
+                                  background: 'linear-gradient(145deg, #fef7f0, #fed7cc)',
+                                  boxShadow: '2px 2px 6px rgba(251,77,0,0.2)',
+                                  textShadow: '1px 1px 2px rgba(0,34,68,0.3)'
+                                }}>
+                                  {game.awayTeam.score}
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                          
+                          {/* @ Symbol */}
+                          <td className="px-4 py-7 text-center align-middle" style={{
+                            border: '2px solid #FB4D00',
+                            borderRadius: '8px',
+                            margin: '4px',
+                            width: '80px'
+                          }}>
+                            <span className="text-2xl font-black" style={{
+                              color: '#FB4D00',
+                              textShadow: '2px 2px 4px rgba(0,34,68,0.3)'
+                            }}>@</span>
+                          </td>
+                          
+                          {/* Home Team */}
+                          <td className="px-8 py-7 align-middle" style={{
+                            border: '2px solid #FB4D00',
+                            borderRadius: '8px',
+                            margin: '4px',
+                            width: '300px'
+                          }}>
+                            <div className="flex items-center justify-between">
+                              <div className="text-lg font-bold" style={{ color: '#002244' }}>
+                                {game.homeTeam.name}
+                              </div>
+                              {game.homeTeam.score !== null && (
+                                <div className="text-2xl font-black ml-6 px-3 py-1 rounded-lg" style={{
+                                  color: '#FB4D00',
+                                  background: 'linear-gradient(145deg, #fef7f0, #fed7cc)',
+                                  boxShadow: '2px 2px 6px rgba(251,77,0,0.2)',
+                                  textShadow: '1px 1px 2px rgba(0,34,68,0.3)'
+                                }}>
+                                  {game.homeTeam.score}
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                          
+                          {/* Your Pick */}
+                          <td className="px-6 py-7 text-center align-middle" style={{
+                            border: '2px solid #FB4D00',
+                            borderRadius: '8px',
+                            margin: '4px',
+                            width: '180px'
+                          }}>
+                            {userPick ? (
+                              <div className="flex items-center justify-center">
+                                <span className={`inline-flex items-center px-4 py-3 rounded-xl text-base font-bold border-2 ${
+                                  game.isFinal && userPick.isCorrect
+                                    ? ''
+                                    : game.isFinal && !userPick.isCorrect
+                                    ? ''
+                                    : ''
+                                }`} style={{
+                                  background: game.isFinal && userPick.isCorrect
+                                    ? 'linear-gradient(145deg, #10b981, #059669)'
+                                    : game.isFinal && !userPick.isCorrect
+                                    ? 'linear-gradient(145deg, #ef4444, #dc2626)'
+                                    : 'linear-gradient(145deg, #002244, #003366)',
+                                  color: 'white',
+                                  borderColor: '#FB4D00',
+                                  boxShadow: '3px 3px 8px rgba(0,0,0,0.2), inset 1px 1px 3px rgba(255,255,255,0.2)',
+                                  textShadow: '1px 1px 2px rgba(0,0,0,0.5)'
+                                }}>
+                                  {userPick.pickedTeamId === game.homeTeam.id ? game.homeTeam.abbreviation : game.awayTeam.abbreviation}
+                                  {game.isFinal && (
+                                    <span className="ml-2 text-lg font-black">
+                                      {userPick.isCorrect ? '✓' : '✗'}
+                                    </span>
+                                  )}
+                                </span>
+                              </div>
+                            ) : (
+                              <div className="text-2xl font-bold" style={{ color: '#FB4D00' }}>—</div>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
             </div>
-          );
-        })}
-      </div>
+          ))}
+          
+          {/* Additional picks button removed - now at top */}
+        </div>
+      )}
 
-      {/* Submit Button */}
-      <div className="text-center mt-xl">
-        <button
-          onClick={submitPicks}
-          disabled={submitting || games.every(game => isGameLocked(game))}
-          className="btn btn-primary btn-lg"
-        >
-          {submitting ? 'Submitting...' : 'Submit Picks'}
-        </button>
-        <p className="text-sm text-gray-600 mt-sm">
-          You can change your picks until the games start
-        </p>
-      </div>
+
+      {/* Game Pick Modal */}
+      <GamePickModal
+        games={games}
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        currentGameIndex={modalGameIndex}
+        onGameIndexChange={setModalGameIndex}
+        userPicks={userPicks}
+        onPickChange={handlePickChange}
+        formatGameTime={formatGameTime}
+      />
     </div>
   );
 };

@@ -25,7 +25,8 @@
       "Bash(winpty docker exec:*)",
       "Bash(grep:*)",
       "WebFetch(domain:www.nfl.com)",
-      "WebFetch(domain:www.espn.com)"
+      "WebFetch(domain:www.espn.com)",
+      "Bash(docker cp:*)"
     ],
     "deny": []
   }

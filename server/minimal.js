@@ -5,6 +5,8 @@ const axios = require('axios');
 const db = require('./models/database');
 const automaticUpdates = require('./services/automaticUpdates');
 const nfl2025Api = require('./services/nfl2025Api');
+const espnOddsAPI = require('./services/espnOddsApi');
+const oddsScheduler = require('./services/oddsScheduler');
 require('dotenv').config();
 
 // Function to fetch injury data from ESPN API for a team
@@ -129,6 +131,256 @@ const teamIdMapping = {
 };
 
 const app = express();
+
+// Update odds from ESPN API for current week
+// Admin endpoint to run database migration
+app.post('/api/admin/run-migration', async (req, res) => {
+  try {
+    const fs = require('fs');
+    const { migrationName } = req.body;
+    
+    if (!migrationName) {
+      return res.status(400).json({ error: 'Migration name required' });
+    }
+    
+    const migrationPath = `./migrations/${migrationName}.sql`;
+    const migration = fs.readFileSync(migrationPath, 'utf8');
+    
+    await db.query(migration);
+    
+    res.json({
+      success: true,
+      message: `Migration ${migrationName}.sql completed successfully`
+    });
+    
+  } catch (error) {
+    console.error('Migration failed:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// Admin endpoint to fetch and map ESPN events
+app.post('/api/admin/map-espn-events', async (req, res) => {
+  try {
+    const espnEventsAPI = require('./services/espnEventsApi');
+    
+    console.log('🏈 Fetching ESPN events for 2025 season...');
+    const events = await espnEventsAPI.fetchSeasonEvents();
+    
+    console.log('🔗 Mapping events to database games...');
+    const mapResult = await espnEventsAPI.mapEventsToGames(db, events);
+    
+    res.json({
+      success: true,
+      eventsFound: events.length,
+      mapped: mapResult.mapped,
+      failed: mapResult.failed,
+      message: `Mapped ${mapResult.mapped} games to ESPN events`
+    });
+    
+  } catch (error) {
+    console.error('Error mapping ESPN events:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+app.post('/api/admin/update-odds', async (req, res) => {
+  try {
+    console.log('📊 Starting ESPN odds update for current week...');
+    
+    // First, ensure ESPN event ID and odds columns exist
+    try {
+      await db.query('ALTER TABLE games ADD COLUMN IF NOT EXISTS espn_event_id VARCHAR(50)');
+      await db.query('ALTER TABLE games ADD COLUMN IF NOT EXISTS espn_game_id VARCHAR(50)');
+      await db.query('ALTER TABLE games ADD COLUMN IF NOT EXISTS over_odds DECIMAL(6,2)');
+      await db.query('ALTER TABLE games ADD COLUMN IF NOT EXISTS under_odds DECIMAL(6,2)');
+      await db.query('CREATE INDEX IF NOT EXISTS idx_games_espn_event_id ON games(espn_event_id)');
+      console.log('✅ ESPN event ID and odds columns ensured');
+    } catch (error) {
+      console.log('⚠️ Column creation skipped (may already exist):', error.message);
+    }
+    
+    // Ensure Hall of Fame game has correct ESPN event ID
+    await db.query(`
+      UPDATE games 
+      SET espn_event_id = '401772971', espn_game_id = '401772971'
+      WHERE week = 'pre1' 
+      AND season_type = 1
+      AND date(game_time) = '2025-07-31'
+    `);
+    console.log('✅ Updated Hall of Fame game with correct ESPN event ID: 401772971');
+    
+    // If no other ESPN event IDs exist, fetch and map them
+    const eventCheck = await db.query('SELECT COUNT(*) as count FROM games WHERE espn_event_id IS NOT NULL');
+    if (parseInt(eventCheck.rows[0].count) <= 1) {
+      console.log('🔗 Fetching additional ESPN event IDs...');
+      const espnEventsAPI = require('./services/espnEventsApi');
+      const events = await espnEventsAPI.fetchSeasonEvents();
+      await espnEventsAPI.mapEventsToGames(db, events);
+    }
+    
+    // Get current week games (upcoming games within next 2 weeks) with ESPN event IDs
+    const gamesResult = await db.query(`
+      SELECT g.id, g.espn_event_id, g.espn_game_id, g.week, g.home_team_id, g.away_team_id,
+             ht.name as home_team_name, at.name as away_team_name,
+             g.game_time, g.spread, g.over_under
+      FROM games g
+      JOIN teams ht ON g.home_team_id = ht.id
+      JOIN teams at ON g.away_team_id = at.id
+      WHERE g.game_time BETWEEN NOW() AND NOW() + INTERVAL '14 days'
+        AND g.season_type IN (1, 2)
+        AND g.espn_event_id IS NOT NULL
+      ORDER BY g.game_time ASC
+      LIMIT 50
+    `);
+
+    if (gamesResult.rows.length === 0) {
+      return res.json({ 
+        message: 'No upcoming games found for odds update',
+        updated: 0,
+        failed: 0
+      });
+    }
+
+    console.log(`Found ${gamesResult.rows.length} upcoming games with ESPN IDs to update`);
+    
+    // Debug: Show what ESPN event IDs we're using
+    gamesResult.rows.forEach(game => {
+      console.log(`🔍 Game: ${game.away_team_name} @ ${game.home_team_name}`);
+      console.log(`   ESPN Event ID: ${game.espn_event_id}`);
+      console.log(`   ESPN Game ID: ${game.espn_game_id}`);
+      console.log(`   Game Time: ${game.game_time}`);
+    });
+    
+    // Use real ESPN odds API
+    const updateResult = await espnOddsAPI.batchUpdateOdds(db, gamesResult.rows);
+    
+    res.json({
+      success: true,
+      message: `ESPN odds update completed for current week`,
+      gamesProcessed: gamesResult.rows.length,
+      updated: updateResult.updated,
+      failed: updateResult.failed
+    });
+    
+  } catch (error) {
+    console.error('Error updating odds:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// Debug endpoint to check ESPN event IDs
+app.get('/api/debug/espn-ids', async (req, res) => {
+  try {
+    const result = await db.query(`
+      SELECT id, week, home_team_name, away_team_name, game_time, 
+             espn_event_id, espn_game_id, spread, over_under
+      FROM games g
+      JOIN teams ht ON g.home_team_id = ht.id
+      JOIN teams at ON g.away_team_id = at.id
+      WHERE g.week = 'pre1'
+      ORDER BY g.game_time
+    `);
+    
+    res.json(result.rows);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Keep the old placeholder logic as fallback
+app.post('/api/admin/update-odds-fallback', async (req, res) => {
+  try {
+    console.log('📊 Starting fallback odds update...');
+    
+    const gamesResult = await db.query(`
+      SELECT g.id, g.week, g.home_team_id, g.away_team_id,
+             ht.name as home_team_name, at.name as away_team_name,
+             g.game_time, g.spread, g.over_under
+      FROM games g
+      JOIN teams ht ON g.home_team_id = ht.id
+      JOIN teams at ON g.away_team_id = at.id
+      WHERE g.game_time BETWEEN NOW() AND NOW() + INTERVAL '14 days'
+        AND g.season_type IN (1, 2)
+      ORDER BY g.game_time ASC
+      LIMIT 50
+    `);
+
+    if (gamesResult.rows.length === 0) {
+      return res.json({ 
+        message: 'No upcoming games found for odds update',
+        updated: 0,
+        failed: 0
+      });
+    }
+
+    console.log(`Found ${gamesResult.rows.length} upcoming games to update with fallback odds`);
+    
+    let updated = 0;
+    let failed = 0;
+    
+    // Generate realistic betting odds based on teams
+    for (const game of gamesResult.rows) {
+      try {
+        const spread = (Math.random() * 14 - 7).toFixed(1); // -7.0 to +7.0
+        const overUnder = (Math.random() * 10 + 42).toFixed(1); // 42.0 to 52.0
+        
+        // Update TV channel based on game time/day
+        const gameDate = new Date(game.game_time);
+        const dayOfWeek = gameDate.getDay();
+        const hour = gameDate.getHours();
+        
+        let tvChannel = 'TBD';
+        if (dayOfWeek === 0) { // Sunday
+          tvChannel = hour < 16 ? 'CBS' : hour < 20 ? 'FOX' : 'NBC';
+        } else if (dayOfWeek === 1) { // Monday
+          tvChannel = 'ESPN';
+        } else if (dayOfWeek === 4) { // Thursday
+          tvChannel = 'Amazon Prime';
+        } else if (dayOfWeek === 5 || dayOfWeek === 6) { // Friday/Saturday
+          tvChannel = 'NFL Network';
+        }
+        
+        await db.query(`
+          UPDATE games 
+          SET spread = $1, over_under = $2, tv_channel = $3, updated_at = CURRENT_TIMESTAMP
+          WHERE id = $4
+        `, [parseFloat(spread), parseFloat(overUnder), tvChannel, game.id]);
+        
+        console.log(`✅ Updated ${game.away_team_name} @ ${game.home_team_name}: Spread=${spread}, O/U=${overUnder}, TV=${tvChannel}`);
+        updated++;
+        
+      } catch (error) {
+        console.error(`Error updating game ${game.id}:`, error);
+        failed++;
+      }
+    }
+    
+    res.json({
+      message: `Odds update completed for current week`,
+      updated,
+      failed,
+      gamesProcessed: gamesResult.rows.length
+    });
+
+  } catch (error) {
+    console.error('Error updating current week odds:', error);
+    res.status(500).json({ 
+      error: 'Failed to update current week odds',
+      details: error.message 
+    });
+  }
+});
+
 const PORT = process.env.PORT || 5000;
 
 app.use(cors());
@@ -197,6 +449,7 @@ app.get('/api/test/games/week/:week', async (req, res) => {
         g.picks_locked,
         g.spread,
         g.over_under,
+        g.tv_channel,
         g.home_team_id,
         g.away_team_id,
         ht.name as home_team_name,
@@ -339,6 +592,11 @@ app.get('/api/games/week/:week/picks', async (req, res) => {
         g.picks_locked,
         g.spread,
         g.over_under,
+        g.over_odds,
+        g.under_odds,
+        g.tv_channel,
+        g.espn_event_id,
+        g.espn_game_id,
         g.home_team_id,
         g.away_team_id,
         ht.name as home_team_name,
@@ -1929,6 +2187,7 @@ app.get('/api/games/season/:seasonType/week/:week', async (req, res) => {
         g.picks_locked,
         g.spread,
         g.over_under,
+        g.tv_channel,
         g.home_team_id,
         g.away_team_id,
         ht.name as home_team_name,
@@ -1968,6 +2227,13 @@ app.listen(PORT, () => {
     automaticUpdates.init();
   } catch (error) {
     console.error('❌ Failed to initialize automatic updates:', error.message);
+  }
+  
+  // Start odds scheduler
+  try {
+    oddsScheduler.start();
+  } catch (error) {
+    console.error('❌ Failed to start odds scheduler:', error.message);
   }
 });
 // restart trigger

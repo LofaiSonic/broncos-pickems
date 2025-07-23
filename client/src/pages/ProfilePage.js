@@ -169,8 +169,8 @@ const ProfilePage = () => {
         </div>
       </div>
 
-      {/* Admin Panel - Show for testing (restrict later) */}
-      {user && <AdminPanel />}
+      {/* Admin Panel - Only show for Dirtymudder92 */}
+      {user?.username === 'Dirtymudder92' && <AdminPanel />}
     </div>
   );
 };
