@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import axios from 'axios';
 import InjuryReportCard from '../components/InjuryReportCard';
@@ -15,9 +15,17 @@ const PicksPage = () => {
   // Modal state - default to open with first game
   const [isModalOpen, setIsModalOpen] = useState(true);
   const [modalGameIndex, setModalGameIndex] = useState(0);
+  
+  // Ref for week navigation scroll container
+  const weekScrollRef = useRef(null);
 
   useEffect(() => {
     fetchGamesAndPicks();
+  }, [currentWeek, seasonType]);
+
+  // Scroll to selected week after component updates
+  useEffect(() => {
+    scrollToSelectedWeek(currentWeek);
   }, [currentWeek, seasonType]);
 
   const fetchGamesAndPicks = async () => {
@@ -213,6 +221,27 @@ const PicksPage = () => {
     return game.picksLocked || new Date(game.gameTime) <= new Date();
   };
 
+  // Function to scroll selected week into view
+  const scrollToSelectedWeek = (weekValue) => {
+    if (weekScrollRef.current && window.innerWidth < 768) {
+      const selectedButton = weekScrollRef.current.querySelector(`button[data-week="${weekValue}"]`);
+      if (selectedButton) {
+        selectedButton.scrollIntoView({
+          behavior: 'smooth',
+          block: 'nearest',
+          inline: 'center'
+        });
+      }
+    }
+  };
+
+  // Enhanced week change handler
+  const handleWeekChange = (weekValue) => {
+    setCurrentWeek(weekValue.toString());
+    // Small delay to allow state update before scrolling
+    setTimeout(() => scrollToSelectedWeek(weekValue.toString()), 100);
+  };
+
   const getTeamButtonStyling = (game, teamId, userPick) => {
     const isSelected = userPick?.pickedTeamId === teamId;
     const isGameCompleted = game.isFinal && userPick;
@@ -269,7 +298,7 @@ const PicksPage = () => {
   }
 
   return (
-    <div className="container mx-auto mt-lg px-4" style={{ maxWidth: '1200px' }}>
+    <div className="container mx-auto mt-lg px-2 sm:px-4" style={{ maxWidth: '100%', overflowX: 'hidden' }}>
       <div className="mb-lg">
         <h1 className="text-2xl font-bold mb-sm">
           {getWeekDisplayName(currentWeek, seasonType)} Picks
@@ -302,20 +331,52 @@ const PicksPage = () => {
       </div>
 
       {/* Week Navigation */}
-      <div className="flex flex-wrap justify-center gap-sm mb-lg">
-        {getAvailableWeeks(seasonType).map((week) => (
-          <button
-            key={week.value}
-            onClick={() => setCurrentWeek(week.value.toString())}
-            className={`btn btn-sm ${
-              currentWeek === week.value.toString() 
-                ? 'btn-primary' 
-                : 'btn-outline'
-            }`}
+      <div className="mb-lg mt-xl">
+        <div 
+          ref={weekScrollRef}
+          className="flex gap-sm pb-2 mb-4"
+          style={{
+            overflowX: 'auto',
+            scrollBehavior: 'smooth',
+            WebkitOverflowScrolling: 'touch',
+            scrollbarWidth: 'none',
+            msOverflowStyle: 'none',
+            justifyContent: window.innerWidth >= 768 ? 'center' : 'flex-start',
+            paddingTop: '1rem'
+          }}
+        >
+          {getAvailableWeeks(seasonType).map((week) => (
+            <button
+              key={week.value}
+              data-week={week.value.toString()}
+              onClick={() => handleWeekChange(week.value)}
+              className={`btn btn-sm ${
+                currentWeek === week.value.toString() 
+                  ? 'btn-primary' 
+                  : 'btn-outline'
+              }`}
+              style={{
+                minWidth: '120px',
+                flexShrink: 0,
+                whiteSpace: 'nowrap',
+                padding: '12px 20px'
+              }}
+            >
+              {week.label}
+            </button>
+          ))}
+        </div>
+        {/* Mobile scroll hint */}
+        {seasonType === 2 && (
+          <div 
+            className="text-center text-sm text-gray-500"
+            style={{
+              display: window.innerWidth < 768 ? 'block' : 'none'
+            }}
           >
-            {week.label}
-          </button>
-        ))}
+            ← Swipe to see more weeks →
+          </div>
+        )}
       </div>
 
       {/* Season Type Info */}
@@ -389,8 +450,9 @@ const PicksPage = () => {
               </div>
               
               {/* Games Table */}
-              <div className="flex justify-center p-4">
-                <table className="border-collapse rounded-xl" style={{
+              <div className="overflow-x-auto w-full p-2 sm:p-4">
+                <div className="flex justify-center min-w-full">
+                  <table className="border-collapse rounded-xl" style={{
                   borderSpacing: 0,
                   border: '2px solid #FB4D00',
                   borderRadius: '12px',
@@ -609,6 +671,7 @@ const PicksPage = () => {
                     })}
                   </tbody>
                 </table>
+                </div>
               </div>
             </div>
           ))}

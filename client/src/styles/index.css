@@ -39,6 +39,16 @@
   box-sizing: border-box;
 }
 
+html {
+  overflow-x: hidden;
+  width: 100%;
+}
+
+#root {
+  overflow-x: hidden;
+  width: 100%;
+}
+
 body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
@@ -48,6 +58,7 @@ body {
   background-color: var(--broncos-cream);
   color: var(--broncos-blue);
   line-height: 1.6;
+  overflow-x: hidden;
 }
 
 /* Fix link styling issues */
@@ -279,4 +290,23 @@ code {
 @keyframes spin {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
+}
+
+/* Week Navigation Scrollbar Hide */
+.flex::-webkit-scrollbar {
+  display: none;
+}
+
+/* Modal Responsive Styles */
+@media (max-width: 640px) {
+  .modal-backdrop {
+    padding: 0 !important;
+  }
+  
+  .modal-content {
+    max-width: 100% !important;
+    height: 100vh !important;
+    max-height: 100vh !important;
+    border-radius: 0 !important;
+  }
 }

@@ -771,7 +771,7 @@ const GamePickModal = ({
   if (!isOpen || !games || games.length === 0) return null;
   
   return (
-    <div style={{
+    <div className="modal-backdrop" style={{
       position: 'fixed',
       top: 0,
       left: 0,
@@ -782,9 +782,9 @@ const GamePickModal = ({
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      padding: '20px'
+      padding: '10px'
     }}>
-      <div style={{
+      <div className="modal-content" style={{
         width: '100%',
         maxWidth: '600px',
         height: '80vh',
