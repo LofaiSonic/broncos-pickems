@@ -31,7 +31,7 @@ const GamePickModal = ({
     setIframeKey(prev => prev + 1);
   }, [currentGameIndex]);
   
-  const handleTeamSelect = (teamId) => {
+  const handleTeamSelect = (teamId, isDoubleClick = false) => {
     setSelectedTeam(teamId);
     onPickChange(currentGame.id, teamId);
     
@@ -43,6 +43,16 @@ const GamePickModal = ({
         selectedTeamId: teamId,
         hasSelection: !!teamId
       }, '*');
+    }
+    
+    // If double-click, automatically go to next game or close modal if last game
+    if (isDoubleClick) {
+      if (currentGameIndex < games.length - 1) {
+        setTimeout(() => goToNext(), 300); // Small delay to show selection
+      } else {
+        // This is the last game, close the modal after showing selection
+        setTimeout(() => onClose(), 300);
+      }
     }
   };
   
@@ -59,17 +69,8 @@ const GamePickModal = ({
   };
   
   const handleSubmitPicks = () => {
-    // Count how many picks have been made
-    const picksCount = Object.keys(userPicks).filter(gameId => userPicks[gameId]?.pickedTeamId).length;
-    
-    // Confirm submission
-    const confirmMessage = `Submit ${picksCount} pick${picksCount !== 1 ? 's' : ''} for this week?`;
-    
-    if (window.confirm(confirmMessage)) {
-      // Close modal and show success message
-      onClose();
-      alert(`Successfully submitted ${picksCount} pick${picksCount !== 1 ? 's' : ''}!`);
-    }
+    // Just close the modal - no confirmation needed
+    onClose();
   };
   
   const getTeamButtonStyling = (teamId) => {
@@ -513,13 +514,14 @@ const GamePickModal = ({
             <div class="teams-grid">
               <!-- Away Team -->
               <a href="#" 
-                 onclick="parent.postMessage({type: 'teamSelect', teamId: ${currentGame.awayTeam.id}}, '*')"
+                 onclick="event.preventDefault(); parent.postMessage({type: 'teamSelect', teamId: ${currentGame.awayTeam.id}, isDoubleClick: false}, '*'); return false;"
+                 ondblclick="event.preventDefault(); parent.postMessage({type: 'teamSelect', teamId: ${currentGame.awayTeam.id}, isDoubleClick: true}, '*'); return false;"
                  class="team-button"
                  style="border-color: ${awayTeamStyling.styles.borderColor}; background-color: ${awayTeamStyling.styles.backgroundColor}; color: ${awayTeamStyling.styles.color};">
                 <div class="team-location">@ Away</div>
                 <div class="team-name">${currentGame.awayTeam.name}</div>
                 <div class="team-abbr">${currentGame.awayTeam.abbreviation}</div>
-                <div class="team-record">(0-0)</div>
+                <div class="team-record">(${currentGame.awayTeamRecord || '0-0'})</div>
                 ${currentGame.awayTeamInjuries?.length > 0 ? 
                   `<div class="injuries-summary" onclick="event.preventDefault(); event.stopPropagation(); showInjuryDetails('away', '${currentGame.awayTeam.name.replace(/'/g, "\\'")}'); return false;">${currentGame.awayTeamInjuries.length} injuries reported</div>` :
                   `<div class="injuries-summary no-injuries">No injuries reported</div>`
@@ -533,13 +535,14 @@ const GamePickModal = ({
               
               <!-- Home Team -->
               <a href="#" 
-                 onclick="parent.postMessage({type: 'teamSelect', teamId: ${currentGame.homeTeam.id}}, '*')"
+                 onclick="event.preventDefault(); parent.postMessage({type: 'teamSelect', teamId: ${currentGame.homeTeam.id}, isDoubleClick: false}, '*'); return false;"
+                 ondblclick="event.preventDefault(); parent.postMessage({type: 'teamSelect', teamId: ${currentGame.homeTeam.id}, isDoubleClick: true}, '*'); return false;"
                  class="team-button"
                  style="border-color: ${homeTeamStyling.styles.borderColor}; background-color: ${homeTeamStyling.styles.backgroundColor}; color: ${homeTeamStyling.styles.color};">
                 <div class="team-location">🏠 Home</div>
                 <div class="team-name">${currentGame.homeTeam.name}</div>
                 <div class="team-abbr">${currentGame.homeTeam.abbreviation}</div>
-                <div class="team-record">(0-0)</div>
+                <div class="team-record">(${currentGame.homeTeamRecord || '0-0'})</div>
                 ${currentGame.homeTeamInjuries?.length > 0 ? 
                   `<div class="injuries-summary" onclick="event.preventDefault(); event.stopPropagation(); showInjuryDetails('home', '${currentGame.homeTeam.name.replace(/'/g, "\\'")}'); return false;">${currentGame.homeTeamInjuries.length} injuries reported</div>` :
                   `<div class="injuries-summary no-injuries">No injuries reported</div>`
@@ -750,7 +753,7 @@ const GamePickModal = ({
   useEffect(() => {
     const handleMessage = (event) => {
       if (event.data.type === 'teamSelect') {
-        handleTeamSelect(event.data.teamId);
+        handleTeamSelect(event.data.teamId, event.data.isDoubleClick);
       } else if (event.data.type === 'navigate') {
         if (event.data.direction === 'prev') {
           goToPrevious();
@@ -771,7 +774,15 @@ const GamePickModal = ({
   if (!isOpen || !games || games.length === 0) return null;
   
   return (
-    <div className="modal-backdrop" style={{
+    <div 
+      className="modal-backdrop" 
+      onClick={(e) => {
+        // Only close if clicking directly on backdrop, not the modal content
+        if (e.target === e.currentTarget) {
+          onClose();
+        }
+      }}
+      style={{
       position: 'fixed',
       top: 0,
       left: 0,

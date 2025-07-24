@@ -12,8 +12,8 @@ const PicksPage = () => {
   const [currentWeek, setCurrentWeek] = useState(week || 'pre1');
   const [seasonType, setSeasonType] = useState(1); // 1=Preseason, 2=Regular Season
   
-  // Modal state - default to open with first game
-  const [isModalOpen, setIsModalOpen] = useState(true);
+  // Modal state - default to closed, opens when user clicks "Make Your Picks"
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalGameIndex, setModalGameIndex] = useState(0);
   
   // Ref for week navigation scroll container
@@ -27,6 +27,14 @@ const PicksPage = () => {
   useEffect(() => {
     scrollToSelectedWeek(currentWeek);
   }, [currentWeek, seasonType]);
+
+  // Prevent modal index from being invalid when games data changes
+  useEffect(() => {
+    if (games.length > 0 && modalGameIndex >= games.length) {
+      // If modal index is beyond the new games array, clamp to last valid index
+      setModalGameIndex(games.length - 1);
+    }
+  }, [games.length, modalGameIndex]);
 
   const fetchGamesAndPicks = async () => {
     try {
@@ -56,6 +64,8 @@ const PicksPage = () => {
             abbreviation: game.away_team_abbr,
             score: game.away_score
           },
+          homeTeamRecord: game.home_team_record,
+          awayTeamRecord: game.away_team_record,
           spread: game.spread,
           overUnder: game.over_under,
           tvChannel: game.tv_channel,
@@ -238,6 +248,10 @@ const PicksPage = () => {
   // Enhanced week change handler
   const handleWeekChange = (weekValue) => {
     setCurrentWeek(weekValue.toString());
+    // Close modal when changing weeks to prevent confusion
+    if (isModalOpen) {
+      setIsModalOpen(false);
+    }
     // Small delay to allow state update before scrolling
     setTimeout(() => scrollToSelectedWeek(weekValue.toString()), 100);
   };
@@ -245,6 +259,8 @@ const PicksPage = () => {
   const getTeamButtonStyling = (game, teamId, userPick) => {
     const isSelected = userPick?.pickedTeamId === teamId;
     const isGameCompleted = game.isFinal && userPick;
+    // Only show correct/incorrect colors if game is final AND isCorrect is explicitly set (not null/undefined)
+    const hasPickResult = isGameCompleted && userPick.isCorrect !== null && userPick.isCorrect !== undefined;
     
     // Base styles
     let className = `w-full p-8 rounded-lg border-2 text-center transition-all `;
@@ -253,8 +269,8 @@ const PicksPage = () => {
       height: '100%'
     };
     
-    if (isGameCompleted && isSelected) {
-      // Game is completed and this team was picked
+    if (hasPickResult && isSelected) {
+      // Game is completed, pick result is determined, and this team was picked
       if (userPick.isCorrect) {
         // Correct pick - green styling
         className += 'border-green-500 bg-green-100 font-bold';
@@ -267,7 +283,7 @@ const PicksPage = () => {
         styles.borderColor = '#EF4444';
       }
     } else if (isSelected) {
-      // Selected but game not completed - orange styling
+      // Selected but no pick result yet (game not completed or result not calculated) - orange styling
       className += 'border-orange-500 bg-orange-50 font-bold';
       styles.backgroundColor = '#FFF7ED';
       styles.borderColor = '#FA4616';
@@ -314,6 +330,7 @@ const PicksPage = () => {
           onClick={() => {
             setSeasonType(1);
             setCurrentWeek('pre1'); // Start with Hall of Fame Weekend
+            if (isModalOpen) setIsModalOpen(false); // Close modal when switching seasons
           }}
           className={`btn ${seasonType === 1 ? 'btn-primary' : 'btn-outline'}`}
         >
@@ -323,6 +340,7 @@ const PicksPage = () => {
           onClick={() => {
             setSeasonType(2);
             setCurrentWeek('1'); // Start with Week 1
+            if (isModalOpen) setIsModalOpen(false); // Close modal when switching seasons
           }}
           className={`btn ${seasonType === 2 ? 'btn-primary' : 'btn-outline'}`}
         >

@@ -271,45 +271,67 @@ class AutomaticUpdateService {
     }
   }
 
-  // Update team records from ESPN API
+  // Update team records from our own database (based on completed games)
   async updateTeamRecords() {
-    console.log('📈 Updating team records...');
+    console.log('📈 Updating team records from completed games...');
     
     try {
-      // Get current NFL season standings
-      const response = await axios.get('https://site.api.espn.com/apis/site/v2/sports/football/nfl/standings');
-      const standings = response.data.standings || [];
+      // Get all teams
+      const teamsResult = await db.query('SELECT id FROM teams ORDER BY id');
+      let updatedGames = 0;
       
-      let updatedTeams = 0;
-      
-      for (const conference of standings) {
-        for (const division of conference.entries) {
-          for (const team of division.entries) {
-            const teamId = team.team.id;
-            const wins = team.stats.find(stat => stat.name === 'wins')?.value || 0;
-            const losses = team.stats.find(stat => stat.name === 'losses')?.value || 0;
-            const ties = team.stats.find(stat => stat.name === 'ties')?.value || 0;
-            
-            // Update team record in games table
-            await db.query(`
-              UPDATE games 
-              SET home_team_record = $1
-              WHERE home_team_id = $2
-            `, [`${wins}-${losses}${ties > 0 ? `-${ties}` : ''}`, teamId]);
-            
-            await db.query(`
-              UPDATE games 
-              SET away_team_record = $1
-              WHERE away_team_id = $2
-            `, [`${wins}-${losses}${ties > 0 ? `-${ties}` : ''}`, teamId]);
-            
-            updatedTeams++;
-          }
-        }
+      for (const team of teamsResult.rows) {
+        const teamId = team.id;
+        
+        // Calculate wins, losses, and ties for this team from completed games
+        const recordResult = await db.query(`
+          SELECT 
+            SUM(CASE 
+              WHEN (home_team_id = $1 AND home_score > away_score) OR 
+                   (away_team_id = $1 AND away_score > home_score) THEN 1 
+              ELSE 0 
+            END) as wins,
+            SUM(CASE 
+              WHEN (home_team_id = $1 AND home_score < away_score) OR 
+                   (away_team_id = $1 AND away_score < home_score) THEN 1 
+              ELSE 0 
+            END) as losses,
+            SUM(CASE 
+              WHEN (home_team_id = $1 OR away_team_id = $1) AND home_score = away_score THEN 1 
+              ELSE 0 
+            END) as ties
+          FROM games 
+          WHERE (home_team_id = $1 OR away_team_id = $1) 
+            AND is_final = TRUE 
+            AND home_score IS NOT NULL 
+            AND away_score IS NOT NULL
+        `, [teamId]);
+        
+        const wins = recordResult.rows[0].wins || 0;
+        const losses = recordResult.rows[0].losses || 0;
+        const ties = recordResult.rows[0].ties || 0;
+        
+        const recordString = ties > 0 ? `${wins}-${losses}-${ties}` : `${wins}-${losses}`;
+        
+        // Update all future games with this team's current record
+        const homeUpdateResult = await db.query(`
+          UPDATE games 
+          SET home_team_record = $1
+          WHERE home_team_id = $2
+        `, [recordString, teamId]);
+        
+        const awayUpdateResult = await db.query(`
+          UPDATE games 
+          SET away_team_record = $1
+          WHERE away_team_id = $2
+        `, [recordString, teamId]);
+        
+        updatedGames += homeUpdateResult.rowCount + awayUpdateResult.rowCount;
+        console.log(`Team ${teamId} record: ${recordString}`);
       }
       
-      console.log(`✅ Updated records for ${updatedTeams} teams`);
-      return updatedTeams;
+      console.log(`✅ Updated records for ${teamsResult.rows.length} teams across ${updatedGames} game entries`);
+      return updatedGames;
       
     } catch (error) {
       console.error('❌ Error updating team records:', error.message);
