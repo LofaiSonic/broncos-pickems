@@ -101,8 +101,8 @@ const ProfilePage = () => {
           <h2 className="text-xl font-bold mb-lg">Weekly Performance</h2>
           {stats?.weeklyBreakdown && stats.weeklyBreakdown.length > 0 ? (
             <div className="space-y-3">
-              {stats.weeklyBreakdown.map(week => (
-                <div key={week.week} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+              {stats.weeklyBreakdown.map((week, index) => (
+                <div key={week.week || `week-${index}`} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
                   <div>
                     <span className="font-semibold">Week {week.week}</span>
                   </div>
@@ -169,8 +169,12 @@ const ProfilePage = () => {
         </div>
       </div>
 
-      {/* Admin Panel - Only show for Dirtymudder92 */}
-      {user?.username === 'Dirtymudder92' && <AdminPanel />}
+      {/* Admin Panel - Only show for authorized users */}
+      {user?.username === 'DirtyMudder92' && (
+        <div key="admin-panel">
+          <AdminPanel />
+        </div>
+      )}
     </div>
   );
 };

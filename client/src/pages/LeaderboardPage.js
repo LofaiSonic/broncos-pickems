@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../hooks/useAuth';
@@ -9,18 +9,27 @@ const LeaderboardPage = () => {
   const [leaderboard, setLeaderboard] = useState([]);
   const [loading, setLoading] = useState(true);
   const [viewType, setViewType] = useState(week ? 'week' : 'season');
-  const [currentWeek, setCurrentWeek] = useState(week || '1');
+  const [currentWeek, setCurrentWeek] = useState(week || 'pre1');
+  const [seasonType, setSeasonType] = useState(week?.startsWith('pre') ? 1 : 2); // 1=Preseason, 2=Regular Season
   const [showPicksComparison, setShowPicksComparison] = useState(false);
   const [comparisonData, setComparisonData] = useState([]);
   const [comparisonLoading, setComparisonLoading] = useState(false);
   const [expandedGame, setExpandedGame] = useState(null);
   const [searchFilter, setSearchFilter] = useState('');
+  
+  // Ref for week navigation scroll container
+  const weekScrollRef = useRef(null);
 
   useEffect(() => {
     fetchLeaderboard();
     // Reset picks comparison when changing weeks or view types
     setShowPicksComparison(false);
-  }, [viewType, currentWeek]);
+  }, [viewType, currentWeek, seasonType]);
+
+  // Scroll to selected week after component updates
+  useEffect(() => {
+    scrollToSelectedWeek(currentWeek);
+  }, [currentWeek, seasonType]);
 
   const fetchLeaderboard = async () => {
     try {
@@ -76,6 +85,57 @@ const LeaderboardPage = () => {
     };
   };
 
+  // Function to scroll selected week into view
+  const scrollToSelectedWeek = (weekValue) => {
+    if (weekScrollRef.current && window.innerWidth < 768) {
+      const selectedButton = weekScrollRef.current.querySelector(`button[data-week="${weekValue}"]`);
+      if (selectedButton) {
+        selectedButton.scrollIntoView({
+          behavior: 'smooth',
+          block: 'nearest',
+          inline: 'center'
+        });
+      }
+    }
+  };
+
+  // Enhanced week change handler
+  const handleWeekChange = (weekValue) => {
+    setCurrentWeek(weekValue.toString());
+    // Small delay to allow state update before scrolling
+    setTimeout(() => scrollToSelectedWeek(weekValue.toString()), 100);
+  };
+
+  const getWeekDisplayName = (week, seasonType) => {
+    if (seasonType === 1) { // Preseason
+      switch (week) {
+        case 'pre1': return 'Hall of Fame Weekend';
+        case 'pre2': return 'Preseason Week 1';
+        case 'pre3': return 'Preseason Week 2';
+        case 'pre4': return 'Preseason Week 3';
+        default: return `Preseason ${week}`;
+      }
+    } else {
+      return `Week ${week}`;
+    }
+  };
+
+  const getAvailableWeeks = (seasonType) => {
+    if (seasonType === 1) { // Preseason
+      return [
+        { value: 'pre1', label: 'HOF Weekend' },
+        { value: 'pre2', label: 'Pre Wk 1' },
+        { value: 'pre3', label: 'Pre Wk 2' },
+        { value: 'pre4', label: 'Pre Wk 3' }
+      ];
+    } else { // Regular season
+      return Array.from({ length: 18 }, (_, i) => ({
+        value: (i + 1).toString(),
+        label: `Week ${i + 1}`
+      }));
+    }
+  };
+
   const getRankDisplay = (rank) => {
     if (rank === 1) return '🥇';
     if (rank === 2) return '🥈';
@@ -92,10 +152,10 @@ const LeaderboardPage = () => {
   }
 
   return (
-    <div className="container mt-8">
+    <div className="container mt-8" style={{ maxWidth: '100%' }}>
       <div className="mb-6">
         <h1 className="text-2xl font-bold mb-2">
-          {viewType === 'season' ? 'Season' : `Week ${currentWeek}`} Leaderboard
+          {viewType === 'season' ? 'Season' : getWeekDisplayName(currentWeek, seasonType)} Leaderboard
         </h1>
         <p className="text-gray-600">
           See who's dominating the Broncos Pickems League!
@@ -118,22 +178,80 @@ const LeaderboardPage = () => {
         </button>
       </div>
 
+      {/* Season Type Toggle (for weekly view) */}
+      {viewType === 'week' && (
+        <div className="flex justify-center gap-2 mb-6">
+          <button
+            onClick={() => {
+              setSeasonType(1);
+              setCurrentWeek('pre1'); // Start with Hall of Fame Weekend
+            }}
+            className={`btn ${seasonType === 1 ? 'btn-primary' : 'btn-outline'}`}
+          >
+            🏈 Preseason
+          </button>
+          <button
+            onClick={() => {
+              setSeasonType(2);
+              setCurrentWeek('1'); // Start with Week 1
+            }}
+            className={`btn ${seasonType === 2 ? 'btn-primary' : 'btn-outline'}`}
+          >
+            📅 Regular Season
+          </button>
+        </div>
+      )}
+
       {/* Week Selection (for weekly view) */}
       {viewType === 'week' && (
-        <div className="flex flex-wrap justify-center gap-2 mb-6">
-          {[...Array(18)].map((_, i) => (
-            <button
-              key={i + 1}
-              onClick={() => setCurrentWeek((i + 1).toString())}
-              className={`btn btn-sm ${
-                currentWeek === (i + 1).toString() 
-                  ? 'btn-primary' 
-                  : 'btn-outline'
-              }`}
+        <div className="mb-lg mt-xl" style={{ display: 'flex', justifyContent: 'center' }}>
+          <div 
+            ref={weekScrollRef}
+            className="flex gap-sm pb-2 mb-4"
+            style={{
+              overflowX: 'auto',
+              scrollBehavior: 'smooth',
+              WebkitOverflowScrolling: 'touch',
+              scrollbarWidth: 'none',
+              msOverflowStyle: 'none',
+              justifyContent: 'flex-start',
+              paddingTop: '1rem',
+              flexWrap: window.innerWidth >= 768 ? 'wrap' : 'nowrap',
+              maxWidth: window.innerWidth >= 768 ? 'none' : '100vw'
+            }}
+          >
+            {getAvailableWeeks(seasonType).map((week) => (
+              <button
+                key={week.value}
+                data-week={week.value.toString()}
+                onClick={() => handleWeekChange(week.value)}
+                className={`btn btn-sm ${
+                  currentWeek === week.value.toString() 
+                    ? 'btn-primary' 
+                    : 'btn-outline'
+                }`}
+                style={{
+                  minWidth: '120px',
+                  flexShrink: 0,
+                  whiteSpace: 'nowrap',
+                  padding: '12px 20px'
+                }}
+              >
+                {week.label}
+              </button>
+            ))}
+          </div>
+          {/* Mobile scroll hint */}
+          {seasonType === 2 && (
+            <div 
+              className="text-center text-sm text-gray-500"
+              style={{
+                display: window.innerWidth < 768 ? 'block' : 'none'
+              }}
             >
-              Week {i + 1}
-            </button>
-          ))}
+              ← Swipe to see more weeks →
+            </div>
+          )}
         </div>
       )}
 
@@ -175,14 +293,14 @@ const LeaderboardPage = () => {
       {showPicksComparison && viewType === 'week' && comparisonData.length > 0 && (
         <div className="space-y-4">
           <h3 className="text-lg font-semibold text-center mb-4">
-            Week {currentWeek} Picks Comparison
+            {getWeekDisplayName(currentWeek, seasonType)} Picks Comparison
           </h3>
           
           {/* User's Weekly Summary */}
           {user && (
             <div className="card bg-gradient-to-r from-blue-50 to-orange-50 border-2 border-orange-200">
               <h4 className="text-lg font-semibold mb-3 text-center">
-                👤 Your Week {currentWeek} Performance
+                👤 Your {getWeekDisplayName(currentWeek, seasonType)} Performance
               </h4>
               {(() => {
                 const userGames = comparisonData.filter(game => 
@@ -372,20 +490,17 @@ const LeaderboardPage = () => {
 
       {/* Regular Leaderboard */}
       {!showPicksComparison && leaderboard.length > 0 ? (
-        <div className="card">
-          <div className="overflow-x-auto">
-            <table className="w-full" style={{ tableLayout: 'fixed' }}>
+        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+          <div style={{ overflowX: 'auto', padding: '1rem' }}>
+            <table className="w-full">
               <thead>
                 <tr className="border-b border-gray-200">
-                  <th className="text-left py-3 px-4" style={{ width: '80px' }}>Rank</th>
-                  <th className="text-left py-3 px-4" style={{ width: 'auto' }}>Player</th>
-                  <th className="text-center py-3 px-4" style={{ width: '100px' }}>Points</th>
-                  <th className="text-center py-3 px-4" style={{ width: '80px' }}>Picks</th>
-                  <th className="text-center py-3 px-4" style={{ width: '100px' }}>Correct</th>
-                  <th className="text-center py-3 px-4" style={{ width: '100px' }}>Accuracy</th>
-                  {viewType === 'season' && (
-                    <th className="text-center py-3 px-4" style={{ width: '80px' }}>Weeks</th>
-                  )}
+                  <th className="text-left py-3 px-2 text-sm">Rank</th>
+                  <th className="text-left py-3 px-2 text-sm">Player</th>
+                  <th className="text-center py-3 px-6 text-sm">Points</th>
+                  <th className="text-center py-3 px-6 text-sm">Picks</th>
+                  <th className="text-center py-3 px-6 text-sm">Correct</th>
+                  <th className="text-center py-3 px-6 text-sm">Accuracy</th>
                 </tr>
               </thead>
               <tbody>
@@ -396,17 +511,17 @@ const LeaderboardPage = () => {
                       index < 3 ? 'bg-yellow-50' : ''
                     }`}
                   >
-                    <td className="py-4 px-4 text-center">
+                    <td className="py-4 px-2 text-center">
                       <span className="text-lg font-semibold">
                         {getRankDisplay(player.rank)}
                       </span>
                     </td>
-                    <td className="py-4 px-4">
-                      <span className="font-medium">
+                    <td className="py-4 px-2">
+                      <span className="font-medium text-sm">
                         {player.username}
                       </span>
                     </td>
-                    <td className="py-4 px-4 text-center">
+                    <td className="py-4 px-6 text-center">
                       <span 
                         className="text-lg font-bold"
                         style={{ color: 'var(--broncos-orange)' }}
@@ -414,22 +529,17 @@ const LeaderboardPage = () => {
                         {player.totalPoints}
                       </span>
                     </td>
-                    <td className="py-4 px-4 text-center">
+                    <td className="py-4 px-6 text-center text-sm">
                       {player.totalPicks}
                     </td>
-                    <td className="py-4 px-4 text-center">
-                      <span className="text-green-600 font-semibold">
+                    <td className="py-4 px-6 text-center">
+                      <span className="text-green-600 font-semibold text-sm">
                         {player.correctPicks}
                       </span>
                     </td>
-                    <td className="py-4 px-4 text-center">
+                    <td className="py-4 px-6 text-center text-sm">
                       {player.accuracyPercentage}%
                     </td>
-                    {viewType === 'season' && (
-                      <td className="py-4 px-4 text-center">
-                        {player.weeksParticipated}
-                      </td>
-                    )}
                   </tr>
                 ))}
               </tbody>
@@ -443,7 +553,7 @@ const LeaderboardPage = () => {
           <p className="text-gray-600">
             {viewType === 'season' 
               ? 'The season leaderboard will appear once games are completed.'
-              : `No picks have been made for Week ${currentWeek} yet.`
+              : `No picks have been made for ${getWeekDisplayName(currentWeek, seasonType)} yet.`
             }
           </p>
         </div>

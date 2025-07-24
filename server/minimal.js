@@ -7,6 +7,7 @@ const automaticUpdates = require('./services/automaticUpdates');
 const nfl2025Api = require('./services/nfl2025Api');
 const espnOddsAPI = require('./services/espnOddsApi');
 const oddsScheduler = require('./services/oddsScheduler');
+const leaderboardScheduler = require('./services/leaderboardScheduler');
 require('dotenv').config();
 
 // Function to fetch injury data from ESPN API for a team
@@ -796,27 +797,9 @@ app.post('/test/complete-games', async (req, res) => {
       gamesCompleted++;
     }
     
-    // Now calculate pick results
-    await db.query(`
-      UPDATE picks 
-      SET 
-        is_correct = CASE 
-          WHEN picked_team_id = g.home_team_id AND g.home_score > g.away_score THEN TRUE
-          WHEN picked_team_id = g.away_team_id AND g.away_score > g.home_score THEN TRUE
-          ELSE FALSE
-        END,
-        points_earned = CASE 
-          WHEN picked_team_id = g.home_team_id AND g.home_score > g.away_score THEN confidence_points
-          WHEN picked_team_id = g.away_team_id AND g.away_score > g.home_score THEN confidence_points
-          ELSE 0
-        END
-      FROM games g
-      WHERE picks.game_id = g.id AND g.is_final = TRUE
-    `);
-    
-    console.log(`✅ Completed ${gamesCompleted} games and calculated pick results`);
+    console.log(`✅ Completed ${gamesCompleted} games (pick results will be calculated by Tuesday cron job)`);
     res.json({ 
-      message: `Successfully completed ${gamesCompleted} games and calculated picks`,
+      message: `Successfully completed ${gamesCompleted} games (pick results will be calculated by Tuesday cron job)`,
       gamesCompleted 
     });
     
@@ -846,6 +829,258 @@ app.post('/test/clear-picks', async (req, res) => {
   } catch (error) {
     console.error('❌ Error clearing picks:', error.message);
     res.status(500).json({ error: 'Failed to clear picks', details: error.message });
+  }
+});
+
+// Reset game status back to "not started" (for testing)
+app.post('/test/reset-game-status', async (req, res) => {
+  try {
+    console.log('🔄 Resetting game status for testing...');
+    
+    // Reset all games back to "not started" status, removing scores but keeping picks
+    const result = await db.query(`
+      UPDATE games 
+      SET home_score = NULL, 
+          away_score = NULL, 
+          is_final = FALSE, 
+          picks_locked = FALSE,
+          updated_at = NOW()
+      WHERE is_final = TRUE OR home_score IS NOT NULL OR away_score IS NOT NULL
+    `);
+    
+    // Also reset all pick results
+    await db.query(`
+      UPDATE picks 
+      SET is_correct = NULL, 
+          points_earned = 0
+      WHERE is_correct IS NOT NULL OR points_earned > 0
+    `);
+    
+    const gamesReset = result.rowCount;
+    
+    console.log(`✅ Reset ${gamesReset} games back to "not started" status`);
+    
+    res.json({
+      success: true,
+      message: `Successfully reset ${gamesReset} games back to "not started" status`,
+      gamesReset
+    });
+    
+  } catch (error) {
+    console.error('❌ Error resetting game status:', error.message);
+    res.status(500).json({ error: 'Failed to reset game status', details: error.message });
+  }
+});
+
+// Manual trigger for leaderboard updates (admin only)
+app.post('/api/admin/trigger-leaderboard-update', async (req, res) => {
+  try {
+    console.log('🔧 Manually triggering leaderboard update...');
+    
+    const result = await leaderboardScheduler.triggerUpdate();
+    
+    res.json({
+      success: true,
+      message: 'Leaderboard update completed successfully',
+      updateTime: result.updateTime,
+      currentWeek: result.currentWeek
+    });
+    
+  } catch (error) {
+    console.error('❌ Error triggering leaderboard update:', error.message);
+    res.status(500).json({ 
+      error: 'Failed to trigger leaderboard update', 
+      details: error.message 
+    });
+  }
+});
+
+// Simulate games for a specific week (admin only)
+app.post('/test/complete-games-week', async (req, res) => {
+  try {
+    const { week, seasonType } = req.body;
+    
+    if (!week) {
+      return res.status(400).json({ error: 'Week parameter is required' });
+    }
+    
+    console.log(`🎯 Simulating games for week ${week} (season type: ${seasonType || 'regular'})...`);
+    
+    // Get games for the specific week
+    let query = `
+      SELECT g.id, g.week, g.season_type, ht.abbreviation as home_team, at.abbreviation as away_team
+      FROM games g
+      JOIN teams ht ON g.home_team_id = ht.id
+      JOIN teams at ON g.away_team_id = at.id
+      WHERE g.week = $1
+        AND g.is_final = FALSE
+    `;
+    
+    const params = [week];
+    
+    // Add season type filter if provided
+    if (seasonType) {
+      query += ` AND g.season_type = $2`;
+      params.push(seasonType);
+    }
+    
+    query += ` ORDER BY g.game_time`;
+    
+    const gamesResult = await db.query(query, params);
+    
+    if (gamesResult.rows.length === 0) {
+      return res.json({
+        success: true,
+        message: `No incomplete games found for week ${week}`,
+        gamesCompleted: 0
+      });
+    }
+    
+    console.log(`📋 Found ${gamesResult.rows.length} games to simulate for week ${week}`);
+    
+    let gamesCompleted = 0;
+    
+    for (const game of gamesResult.rows) {
+      // Generate random scores (14-35 points each team)
+      const homeScore = Math.floor(Math.random() * 22) + 14; // 14-35
+      const awayScore = Math.floor(Math.random() * 22) + 14; // 14-35
+      
+      // Update the game with final scores
+      await db.query(`
+        UPDATE games 
+        SET home_score = $1, 
+            away_score = $2, 
+            is_final = TRUE, 
+            picks_locked = TRUE,
+            updated_at = NOW()
+        WHERE id = $3
+      `, [homeScore, awayScore, game.id]);
+      
+      console.log(`⚽ ${game.away_team} ${awayScore} - ${homeScore} ${game.home_team} (Week ${game.week})`);
+      gamesCompleted++;
+    }
+    
+    console.log(`✅ Completed ${gamesCompleted} games for week ${week} (pick results will be calculated by Tuesday cron job)`);
+    
+    res.json({
+      success: true,
+      message: `Successfully completed ${gamesCompleted} games for week ${week}`,
+      gamesCompleted,
+      week,
+      seasonType: seasonType || 'regular season'
+    });
+    
+  } catch (error) {
+    console.error('❌ Error completing games for week:', error.message);
+    res.status(500).json({ 
+      error: 'Failed to complete games for week', 
+      details: error.message 
+    });
+  }
+});
+
+// Get available weeks for game simulation
+app.get('/api/admin/available-weeks', async (req, res) => {
+  try {
+    // First, let's check if there are any games at all
+    const gamesCheck = await db.query('SELECT COUNT(*) as total FROM games');
+    console.log('Total games in database:', gamesCheck.rows[0].total);
+    
+    if (parseInt(gamesCheck.rows[0].total) === 0) {
+      return res.json([]);
+    }
+    
+    const result = await db.query(`
+      SELECT 
+        week, 
+        season_type,
+        COUNT(*) as total_games,
+        COUNT(CASE WHEN is_final = FALSE THEN 1 END) as incomplete_games
+      FROM games
+      GROUP BY week, season_type
+      ORDER BY season_type, week
+    `);
+    
+    const weeks = result.rows.map(row => ({
+      week: row.week,
+      seasonType: parseInt(row.season_type),
+      seasonTypeLabel: row.season_type === 1 ? 'Preseason' : 'Regular Season',
+      totalGames: parseInt(row.total_games),
+      incompleteGames: parseInt(row.incomplete_games),
+      label: row.season_type === 1 ? 
+        getPreseasonWeekLabel(row.week) : 
+        `Week ${row.week}`,
+      disabled: parseInt(row.incomplete_games) === 0
+    }));
+    
+    res.json(weeks);
+    
+  } catch (error) {
+    console.error('❌ Error getting available weeks:', error.message);
+    res.status(500).json({ 
+      error: 'Failed to get available weeks', 
+      details: error.message 
+    });
+  }
+});
+
+// Helper function for preseason week labels
+function getPreseasonWeekLabel(week) {
+  switch (week) {
+    case 'pre1': return 'Hall of Fame Weekend';
+    case 'pre2': return 'Preseason Week 1';
+    case 'pre3': return 'Preseason Week 2';
+    case 'pre4': return 'Preseason Week 3';
+    default: return `Preseason ${week}`;
+  }
+}
+
+// Get leaderboard scheduler status
+app.get('/api/admin/leaderboard-status', async (req, res) => {
+  try {
+    const status = leaderboardScheduler.getStatus();
+    res.json(status);
+  } catch (error) {
+    console.error('❌ Error getting leaderboard status:', error.message);
+    res.status(500).json({ 
+      error: 'Failed to get leaderboard status', 
+      details: error.message 
+    });
+  }
+});
+
+// Get leaderboard info for users (explains why recent picks may not show)
+app.get('/api/leaderboard/info', async (req, res) => {
+  try {
+    const now = new Date();
+    const currentDay = now.getDay(); // 0 = Sunday, 2 = Tuesday
+    const currentHour = now.getHours();
+    
+    let nextUpdateDay;
+    if (currentDay < 2 || (currentDay === 2 && currentHour < 6)) {
+      // Next Tuesday
+      const daysUntilTuesday = currentDay === 2 ? 7 : (2 - currentDay + 7) % 7;
+      nextUpdateDay = new Date(now.getTime() + daysUntilTuesday * 24 * 60 * 60 * 1000);
+    } else {
+      // Next Tuesday (next week)
+      const daysUntilNextTuesday = 7 - currentDay + 2;
+      nextUpdateDay = new Date(now.getTime() + daysUntilNextTuesday * 24 * 60 * 60 * 1000);
+    }
+    
+    nextUpdateDay.setHours(6, 0, 0, 0);
+    
+    res.json({
+      message: "Leaderboards update every Tuesday at 6:00 AM EST",
+      explanation: "Recent picks from games that just finished may not appear until the next Tuesday update",
+      nextUpdate: nextUpdateDay.toISOString(),
+      currentTime: now.toISOString()
+    });
+  } catch (error) {
+    console.error('❌ Error getting leaderboard info:', error.message);
+    res.status(500).json({ 
+      error: 'Failed to get leaderboard info', 
+      details: error.message 
+    });
   }
 });
 
@@ -1640,7 +1875,7 @@ app.get('/api/leaderboard/user/:userId', async (req, res) => {
   try {
     const userId = parseInt(req.params.userId);
     
-    // Get user's total stats
+    // Get user's total stats (only from games that meet Tuesday cutoff rule)
     const statsResult = await db.query(`
       SELECT 
         COUNT(p.id) as total_picks,
@@ -1655,11 +1890,18 @@ app.get('/api/leaderboard/user/:userId', async (req, res) => {
       FROM picks p 
       JOIN games g ON p.game_id = g.id
       WHERE p.user_id = $1
+        AND (
+          SELECT COUNT(*) FROM information_schema.tables 
+          WHERE table_name = 'leaderboard_updates'
+        ) > 0
+        AND EXISTS (SELECT 1 FROM leaderboard_updates WHERE last_update > (NOW() - INTERVAL '7 days'))
+        AND g.is_final = true 
+        AND p.is_correct IS NOT NULL
     `, [userId]);
 
     const stats = statsResult.rows[0];
 
-    // Get weekly breakdown
+    // Get weekly breakdown (only from games that meet Tuesday cutoff rule)
     const weeklyResult = await db.query(`
       SELECT 
         g.week,
@@ -1674,11 +1916,18 @@ app.get('/api/leaderboard/user/:userId', async (req, res) => {
       FROM picks p 
       JOIN games g ON p.game_id = g.id
       WHERE p.user_id = $1
+        AND (
+          SELECT COUNT(*) FROM information_schema.tables 
+          WHERE table_name = 'leaderboard_updates'
+        ) > 0
+        AND EXISTS (SELECT 1 FROM leaderboard_updates WHERE last_update > (NOW() - INTERVAL '7 days'))
+        AND g.is_final = true 
+        AND p.is_correct IS NOT NULL
       GROUP BY g.week
       ORDER BY g.week
     `, [userId]);
 
-    // Get favorite teams (most picked teams)
+    // Get favorite teams (most picked teams, only from games that meet Tuesday cutoff rule)
     const favoritesResult = await db.query(`
       SELECT 
         t.name,
@@ -1691,9 +1940,16 @@ app.get('/api/leaderboard/user/:userId', async (req, res) => {
           ELSE 0 
         END as accuracy
       FROM picks p
-      JOIN games g ON (p.picked_team_id = g.home_team_id OR p.picked_team_id = g.away_team_id)
+      JOIN games g ON p.game_id = g.id
       JOIN teams t ON p.picked_team_id = t.id
       WHERE p.user_id = $1
+        AND (
+          SELECT COUNT(*) FROM information_schema.tables 
+          WHERE table_name = 'leaderboard_updates'
+        ) > 0
+        AND EXISTS (SELECT 1 FROM leaderboard_updates WHERE last_update > (NOW() - INTERVAL '7 days'))
+        AND g.is_final = true 
+        AND p.is_correct IS NOT NULL
       GROUP BY t.id, t.name, t.abbreviation
       ORDER BY pick_count DESC, accuracy DESC
       LIMIT 5
@@ -1732,6 +1988,7 @@ app.get('/api/leaderboard/user/:userId', async (req, res) => {
 // Get season leaderboard
 app.get('/api/leaderboard/season', async (req, res) => {
   try {
+    // Only include games that have been final for at least 1 day (Tuesday cutoff rule)
     const result = await db.query(`
       SELECT 
         u.id as user_id,
@@ -1749,7 +2006,19 @@ app.get('/api/leaderboard/season', async (req, res) => {
         ROW_NUMBER() OVER (ORDER BY SUM(p.points_earned) DESC, COUNT(CASE WHEN p.is_correct = true THEN 1 END) DESC) as rank
       FROM users u
       LEFT JOIN picks p ON u.id = p.user_id
-      LEFT JOIN games g ON p.game_id = g.id
+      LEFT JOIN games g ON p.game_id = g.id 
+      WHERE (
+          SELECT COUNT(*) FROM information_schema.tables 
+          WHERE table_name = 'leaderboard_updates'
+        ) > 0
+        AND (
+          SELECT COUNT(*) FROM information_schema.tables 
+          WHERE table_name = 'leaderboard_updates'
+        ) > 0
+        AND EXISTS (SELECT 1 FROM leaderboard_updates WHERE last_update > (NOW() - INTERVAL '7 days'))
+        AND g.is_final = true 
+        AND p.is_correct IS NOT NULL
+        AND p.points_earned IS NOT NULL
       GROUP BY u.id, u.username, u.avatar_url
       HAVING COUNT(p.id) > 0
       ORDER BY total_points DESC, correct_picks DESC
@@ -1778,8 +2047,9 @@ app.get('/api/leaderboard/season', async (req, res) => {
 // Get weekly leaderboard
 app.get('/api/leaderboard/week/:week', async (req, res) => {
   try {
-    const week = parseInt(req.params.week);
+    const week = req.params.week; // Keep as string to support preseason weeks like 'pre1'
     
+    // Only show leaderboard for weeks where games have been final for at least 1 day (Tuesday cutoff rule)
     const result = await db.query(`
       SELECT 
         u.id as user_id,
@@ -1797,7 +2067,20 @@ app.get('/api/leaderboard/week/:week', async (req, res) => {
         ROW_NUMBER() OVER (ORDER BY SUM(p.points_earned) DESC, COUNT(CASE WHEN p.is_correct = true THEN 1 END) DESC) as rank
       FROM users u
       INNER JOIN picks p ON u.id = p.user_id
-      INNER JOIN games g ON p.game_id = g.id AND g.week = $1
+      INNER JOIN games g ON p.game_id = g.id 
+      WHERE g.week = $1
+        AND (
+          SELECT COUNT(*) FROM information_schema.tables 
+          WHERE table_name = 'leaderboard_updates'
+        ) > 0
+        AND (
+          SELECT COUNT(*) FROM information_schema.tables 
+          WHERE table_name = 'leaderboard_updates'
+        ) > 0
+        AND EXISTS (SELECT 1 FROM leaderboard_updates WHERE last_update > (NOW() - INTERVAL '7 days'))
+        AND g.is_final = true 
+        AND p.is_correct IS NOT NULL
+        AND p.points_earned IS NOT NULL
       GROUP BY u.id, u.username, u.avatar_url
       HAVING COUNT(p.id) > 0
       ORDER BY total_points DESC, correct_picks DESC
@@ -2260,6 +2543,13 @@ app.listen(PORT, () => {
     oddsScheduler.start();
   } catch (error) {
     console.error('❌ Failed to start odds scheduler:', error.message);
+  }
+  
+  // Start leaderboard scheduler
+  try {
+    leaderboardScheduler.start();
+  } catch (error) {
+    console.error('❌ Failed to start leaderboard scheduler:', error.message);
   }
 });
 // restart trigger

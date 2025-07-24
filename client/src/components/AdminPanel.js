@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import AutoUpdatesPanel from './AutoUpdatesPanel';
 
@@ -6,6 +6,42 @@ const AdminPanel = () => {
   const [activeTab, setActiveTab] = useState('updates');
   const [processing, setProcessing] = useState(false);
   const [importResults, setImportResults] = useState(null);
+  const [availableWeeks, setAvailableWeeks] = useState([]);
+  const [selectedWeek, setSelectedWeek] = useState('');
+
+  // Fetch available weeks when games tab is active
+  useEffect(() => {
+    if (activeTab === 'games') {
+      fetchAvailableWeeks();
+    }
+  }, [activeTab]);
+
+  const fetchAvailableWeeks = async () => {
+    try {
+      const response = await axios.get('/api/admin/available-weeks');
+      setAvailableWeeks(response.data);
+      // Set first available week as default
+      const firstIncompleteWeek = response.data.find(week => week.incompleteGames > 0);
+      if (firstIncompleteWeek) {
+        setSelectedWeek(`${firstIncompleteWeek.week}-${firstIncompleteWeek.seasonType}`);
+      }
+    } catch (error) {
+      console.error('Error fetching available weeks:', error);
+      // Fallback to hardcoded weeks if server endpoint isn't available yet
+      setAvailableWeeks([
+        { week: 'pre1', seasonType: 1, seasonTypeLabel: 'Preseason', label: 'Hall of Fame Weekend', incompleteGames: 1, disabled: false },
+        { week: 'pre2', seasonType: 1, seasonTypeLabel: 'Preseason', label: 'Preseason Week 1', incompleteGames: 16, disabled: false },
+        { week: 'pre3', seasonType: 1, seasonTypeLabel: 'Preseason', label: 'Preseason Week 2', incompleteGames: 16, disabled: false },
+        { week: 'pre4', seasonType: 1, seasonTypeLabel: 'Preseason', label: 'Preseason Week 3', incompleteGames: 16, disabled: false },
+        { week: '1', seasonType: 2, seasonTypeLabel: 'Regular Season', label: 'Week 1', incompleteGames: 16, disabled: false },
+        { week: '2', seasonType: 2, seasonTypeLabel: 'Regular Season', label: 'Week 2', incompleteGames: 16, disabled: false },
+        { week: '3', seasonType: 2, seasonTypeLabel: 'Regular Season', label: 'Week 3', incompleteGames: 16, disabled: false },
+        { week: '4', seasonType: 2, seasonTypeLabel: 'Regular Season', label: 'Week 4', incompleteGames: 16, disabled: false },
+        { week: '5', seasonType: 2, seasonTypeLabel: 'Regular Season', label: 'Week 5', incompleteGames: 16, disabled: false }
+      ]);
+      setSelectedWeek('pre1-1');
+    }
+  };
 
   const handleCompleteGames = async () => {
     if (!window.confirm('This will simulate game completions with random scores. Continue?')) {
@@ -197,6 +233,77 @@ const AdminPanel = () => {
     }
   };
 
+  const handleResetGameStatus = async () => {
+    if (!window.confirm('This will reset all completed games back to "not started" status, removing all scores but keeping picks. Continue?')) {
+      return;
+    }
+
+    try {
+      setProcessing(true);
+      const response = await axios.post('/test/reset-game-status');
+      alert(`✅ Reset ${response.data.gamesReset || 0} games back to "not started" status`);
+    } catch (error) {
+      console.error('Error resetting game status:', error);
+      alert('Error resetting game status. Check console for details.');
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const handleTriggerLeaderboardUpdate = async () => {
+    if (!window.confirm('This will manually trigger the leaderboard calculation that normally runs every Tuesday at 6am. Continue?')) {
+      return;
+    }
+
+    try {
+      setProcessing(true);
+      const response = await axios.post('/api/admin/trigger-leaderboard-update');
+      alert(`✅ Leaderboard update completed successfully!\n\nUpdate time: ${new Date(response.data.updateTime).toLocaleString()}\nCurrent week: ${response.data.currentWeek?.week || 'Unknown'}`);
+    } catch (error) {
+      console.error('Error triggering leaderboard update:', error);
+      alert('Error triggering leaderboard update. Check console for details.');
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const handleCompleteGamesForWeek = async () => {
+    if (!selectedWeek) {
+      alert('Please select a week to simulate');
+      return;
+    }
+
+    const [week, seasonType] = selectedWeek.split('-');
+    const weekInfo = availableWeeks.find(w => w.week === week && w.seasonType === parseInt(seasonType));
+    
+    if (!weekInfo) {
+      alert('Invalid week selection');
+      return;
+    }
+
+    if (!window.confirm(`This will simulate ${weekInfo.incompleteGames} games for ${weekInfo.label} (${weekInfo.seasonTypeLabel}) with random scores. Continue?`)) {
+      return;
+    }
+
+    try {
+      setProcessing(true);
+      const response = await axios.post('/test/complete-games-week', {
+        week: week,
+        seasonType: parseInt(seasonType)
+      });
+      
+      alert(`✅ Completed ${response.data.gamesCompleted} games for ${weekInfo.label}!`);
+      
+      // Refresh available weeks to update counts
+      await fetchAvailableWeeks();
+    } catch (error) {
+      console.error('Error completing games for week:', error);
+      alert('Error completing games for week. Check console for details.');
+    } finally {
+      setProcessing(false);
+    }
+  };
+
   const tabs = [
     { key: 'updates', label: 'Auto Updates', icon: '🤖' },
     { key: 'season2025', label: '2025 Season', icon: '🏈' },
@@ -364,18 +471,57 @@ const AdminPanel = () => {
             <div className="space-y-6">
               <h3 className="text-lg font-semibold">Game Testing Controls</h3>
               
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Week Selector for Targeted Simulation */}
+              <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg">
+                <h4 className="font-semibold text-blue-800 mb-3">🎯 Simulate Specific Week</h4>
+                <div className="flex gap-4 items-end">
+                  <div className="flex-1">
+                    <label className="block text-sm font-medium text-blue-700 mb-2">
+                      Select Week to Simulate:
+                    </label>
+                    <select
+                      value={selectedWeek}
+                      onChange={(e) => setSelectedWeek(e.target.value)}
+                      className="w-full px-3 py-2 border border-blue-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      disabled={processing}
+                    >
+                      <option value="">Select a week...</option>
+                      {availableWeeks.map((week) => (
+                        <option 
+                          key={`${week.week}-${week.seasonType}`} 
+                          value={`${week.week}-${week.seasonType}`}
+                          disabled={week.disabled}
+                        >
+                          {week.label} ({week.seasonTypeLabel}) - {week.incompleteGames} games left
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <button
+                    onClick={handleCompleteGamesForWeek}
+                    disabled={processing || !selectedWeek}
+                    className={`btn btn-primary px-6 py-2 ${processing || !selectedWeek ? 'opacity-50' : ''}`}
+                  >
+                    {processing ? 'Simulating...' : '🎯 Simulate Week'}
+                  </button>
+                </div>
+                <p className="text-sm text-blue-600 mt-2">
+                  Simulate games for a specific week with random scores (14-35 points each team)
+                </p>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                 <div className="p-4 border border-gray-200 rounded-lg">
-                  <h4 className="font-semibold mb-2">Complete Games</h4>
+                  <h4 className="font-semibold mb-2">Complete All Games</h4>
                   <p className="text-sm text-gray-600 mb-4">
-                    Simulate game completions with random scores for testing the leaderboard
+                    Simulate ALL remaining incomplete games with random scores (bulk operation)
                   </p>
                   <button
                     onClick={handleCompleteGames}
                     disabled={processing}
-                    className={`btn btn-primary w-full ${processing ? 'opacity-50' : ''}`}
+                    className={`btn btn-secondary w-full ${processing ? 'opacity-50' : ''}`}
                   >
-                    {processing ? 'Processing...' : '🎯 Complete All Games'}
+                    {processing ? 'Processing...' : '⚡ Complete All Games'}
                   </button>
                 </div>
 
@@ -390,6 +536,34 @@ const AdminPanel = () => {
                     className={`btn btn-secondary w-full ${processing ? 'opacity-50' : ''}`}
                   >
                     {processing ? 'Processing...' : '🕐 Update Game Times'}
+                  </button>
+                </div>
+
+                <div className="p-4 border border-gray-200 rounded-lg">
+                  <h4 className="font-semibold mb-2">Reset Game Status</h4>
+                  <p className="text-sm text-gray-600 mb-4">
+                    Reset completed games back to "not started" status (keeps picks)
+                  </p>
+                  <button
+                    onClick={handleResetGameStatus}
+                    disabled={processing}
+                    className={`btn btn-secondary w-full ${processing ? 'opacity-50' : ''}`}
+                  >
+                    {processing ? 'Processing...' : '🔄 Reset Game Status'}
+                  </button>
+                </div>
+
+                <div className="p-4 border border-gray-200 rounded-lg">
+                  <h4 className="font-semibold mb-2">Update Leaderboard</h4>
+                  <p className="text-sm text-gray-600 mb-4">
+                    Manually trigger the leaderboard calculation (normally runs Tuesdays at 6am)
+                  </p>
+                  <button
+                    onClick={handleTriggerLeaderboardUpdate}
+                    disabled={processing}
+                    className={`btn btn-primary w-full ${processing ? 'opacity-50' : ''}`}
+                  >
+                    {processing ? 'Processing...' : '📊 Update Leaderboard'}
                   </button>
                 </div>
 
