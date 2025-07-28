@@ -84,8 +84,8 @@ jobs:
         DB_PASSWORD=broncos2025!
         REDIS_URL=redis://broncos-pickems-redis:6379
         JWT_SECRET=your-super-secret-jwt-key-for-production-change-this
-        REDDIT_CLIENT_ID=xq4FOsMi95C_qCAbgFSkxA
-        REDDIT_CLIENT_SECRET=IVWg_kOZPRz6JYN8_BRvx-AwNJLCOw
+        REDDIT_CLIENT_ID=rBkjc74Jhi2u7pFWuBlqWA
+        REDDIT_CLIENT_SECRET=YfdhXXw85hTfJKk5nhGj1NNCFv92Gg
         REDDIT_REDIRECT_URI=http://148.230.83.37:5000/api/auth/reddit/callback
         FRONTEND_URL=http://148.230.83.37:3000
         ENVEOF
