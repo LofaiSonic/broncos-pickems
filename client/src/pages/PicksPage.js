@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import axios from 'axios';
-import InjuryReportCard from '../components/InjuryReportCard';
+// import InjuryReportCard from '../components/InjuryReportCard';
 import GamePickModal from '../components/GamePickModal';
 
 const PicksPage = () => {
@@ -21,7 +21,7 @@ const PicksPage = () => {
 
   useEffect(() => {
     fetchGamesAndPicks();
-  }, [currentWeek, seasonType]);
+  }, [fetchGamesAndPicks]);
 
   // Scroll to selected week after component updates
   useEffect(() => {
@@ -36,7 +36,7 @@ const PicksPage = () => {
     }
   }, [games.length, modalGameIndex]);
 
-  const fetchGamesAndPicks = async () => {
+  const fetchGamesAndPicks = useCallback(async () => {
     try {
       setLoading(true);
       const response = await axios.get(`/api/games/week/${currentWeek}/picks`);
@@ -97,7 +97,7 @@ const PicksPage = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentWeek]);
 
   const handlePickChange = async (gameId, teamId) => {
     // Check if game is locked before attempting to submit
@@ -256,53 +256,6 @@ const PicksPage = () => {
     setTimeout(() => scrollToSelectedWeek(weekValue.toString()), 100);
   };
 
-  const getTeamButtonStyling = (game, teamId, userPick) => {
-    const isSelected = userPick?.pickedTeamId === teamId;
-    const isGameCompleted = game.isFinal && userPick;
-    // Only show correct/incorrect colors if game is final AND isCorrect is explicitly set (not null/undefined)
-    const hasPickResult = isGameCompleted && userPick.isCorrect !== null && userPick.isCorrect !== undefined;
-    
-    // Base styles
-    let className = `w-full p-8 rounded-lg border-2 text-center transition-all `;
-    let styles = {
-      minHeight: '160px',
-      height: '100%'
-    };
-    
-    if (hasPickResult && isSelected) {
-      // Game is completed, pick result is determined, and this team was picked
-      if (userPick.isCorrect) {
-        // Correct pick - green styling
-        className += 'border-green-500 bg-green-100 font-bold';
-        styles.backgroundColor = '#F0FDF4';
-        styles.borderColor = '#22C55E';
-      } else {
-        // Incorrect pick - red styling
-        className += 'border-red-500 bg-red-100 font-bold';
-        styles.backgroundColor = '#FEF2F2';
-        styles.borderColor = '#EF4444';
-      }
-    } else if (isSelected) {
-      // Selected but no pick result yet (game not completed or result not calculated) - orange styling
-      className += 'border-orange-500 bg-orange-50 font-bold';
-      styles.backgroundColor = '#FFF7ED';
-      styles.borderColor = '#FA4616';
-    } else {
-      // Not selected - default styling
-      className += 'border-gray-300 hover:border-gray-400';
-      styles.backgroundColor = 'white';
-      styles.borderColor = '#D1D5DB';
-    }
-    
-    const locked = isGameLocked(game);
-    if (locked) {
-      className += ' cursor-not-allowed';
-    } else {
-      className += ' cursor-pointer';
-    }
-    
-    return { className, styles };
-  };
 
 
   if (loading) {

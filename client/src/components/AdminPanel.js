@@ -67,7 +67,7 @@ const AdminPanel = () => {
 
     try {
       setProcessing(true);
-      const response = await axios.post('/test/clear-picks');
+      await axios.post('/test/clear-picks');
       alert('✅ All picks cleared and games reset');
     } catch (error) {
       console.error('Error clearing picks:', error);

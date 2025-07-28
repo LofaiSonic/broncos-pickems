@@ -73,39 +73,39 @@ const GamePickModal = ({
     onClose();
   };
   
-  const getTeamButtonStyling = (teamId) => {
-    const isSelected = selectedTeam === teamId;
-    const isCompleted = currentGame.isFinal && currentPick;
-    
-    let className = "team-button ";
-    let styles = {};
-    
-    if (isCompleted && isSelected) {
-      if (currentPick.isCorrect) {
-        className += "correct";
-        styles.backgroundColor = '#F0FDF4';
-        styles.borderColor = '#22C55E';
-        styles.color = '#15803D';
-      } else {
-        className += "incorrect";
-        styles.backgroundColor = '#FEF2F2';
-        styles.borderColor = '#EF4444';
-        styles.color = '#DC2626';
-      }
-    } else if (isSelected) {
-      className += "selected";
-      styles.backgroundColor = '#FFF7ED';
-      styles.borderColor = '#FA4616';
-      styles.color = '#EA580C';
-    } else {
-      className += "unselected";
-      styles.backgroundColor = '#FFFFFF';
-      styles.borderColor = '#D1D5DB';
-      styles.color = '#374151';
-    }
-    
-    return { className, styles };
-  };
+  // const getTeamButtonStyling = (teamId) => {
+  //   const isSelected = selectedTeam === teamId;
+  //   const isCompleted = currentGame.isFinal && currentPick;
+  //   
+  //   let className = "team-button ";
+  //   let styles = {};
+  //   
+  //   if (isCompleted && isSelected) {
+  //     if (currentPick.isCorrect) {
+  //       className += "correct";
+  //       styles.backgroundColor = '#F0FDF4';
+  //       styles.borderColor = '#22C55E';
+  //       styles.color = '#15803D';
+  //     } else {
+  //       className += "incorrect";
+  //       styles.backgroundColor = '#FEF2F2';
+  //       styles.borderColor = '#EF4444';
+  //       styles.color = '#DC2626';
+  //     }
+  //   } else if (isSelected) {
+  //     className += "selected";
+  //     styles.backgroundColor = '#FFF7ED';
+  //     styles.borderColor = '#FA4616';
+  //     styles.color = '#EA580C';
+  //   } else {
+  //     className += "unselected";
+  //     styles.backgroundColor = '#FFFFFF';
+  //     styles.borderColor = '#D1D5DB';
+  //     styles.color = '#374151';
+  //   }
+  //   
+  //   return { className, styles };
+  // };
   
   // Create the modal content as HTML string for iframe
   const createModalHTML = () => {
@@ -769,7 +769,7 @@ const GamePickModal = ({
     
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
-  }, [currentGameIndex, games?.length]);
+  }, [currentGameIndex, games?.length, goToNext, goToPrevious, handleSubmitPicks, handleTeamSelect]);
   
   if (!isOpen || !games || games.length === 0) return null;
   

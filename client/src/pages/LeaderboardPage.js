@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../hooks/useAuth';
@@ -20,18 +20,7 @@ const LeaderboardPage = () => {
   // Ref for week navigation scroll container
   const weekScrollRef = useRef(null);
 
-  useEffect(() => {
-    fetchLeaderboard();
-    // Reset picks comparison when changing weeks or view types
-    setShowPicksComparison(false);
-  }, [viewType, currentWeek, seasonType]);
-
-  // Scroll to selected week after component updates
-  useEffect(() => {
-    scrollToSelectedWeek(currentWeek);
-  }, [currentWeek, seasonType]);
-
-  const fetchLeaderboard = async () => {
+  const fetchLeaderboard = useCallback(async () => {
     try {
       setLoading(true);
       const endpoint = viewType === 'season' 
@@ -45,7 +34,18 @@ const LeaderboardPage = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [viewType, currentWeek]);
+
+  useEffect(() => {
+    fetchLeaderboard();
+    // Reset picks comparison when changing weeks or view types
+    setShowPicksComparison(false);
+  }, [fetchLeaderboard]);
+
+  // Scroll to selected week after component updates
+  useEffect(() => {
+    scrollToSelectedWeek(currentWeek);
+  }, [currentWeek, seasonType]);
 
   const fetchPicksComparison = async () => {
     try {
