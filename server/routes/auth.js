@@ -11,15 +11,16 @@ router.get('/reddit', (req, res) => {
   const state = Math.random().toString(36).substring(7);
   const scopes = 'identity';
   
-  // Detect mobile devices from User-Agent
+  // Detect mobile devices from User-Agent - improved detection for mobile browsers
   const userAgent = req.headers['user-agent'] || '';
-  const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent);
+  const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile|mobile|CriOS|FxiOS/i.test(userAgent);
   
   let redditAuthUrl;
   
   if (isMobile) {
-    // Try to use Reddit app deep link format for mobile
-    redditAuthUrl = `reddit://oauth?` +
+    // Use www.reddit.com for mobile which should open the app if installed
+    // or fall back to mobile web version if app not available
+    redditAuthUrl = `https://www.reddit.com/api/v1/authorize?` +
       `client_id=${process.env.REDDIT_CLIENT_ID}&` +
       `response_type=code&` +
       `state=${state}&` +
