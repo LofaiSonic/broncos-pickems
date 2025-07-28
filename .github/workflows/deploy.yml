@@ -98,6 +98,18 @@ jobs:
         REACT_APP_FRONTEND_URL=http://148.230.83.37:3000
         ENVEOF
         
+        # Update docker-compose.yml for production environment variables
+        echo "🔧 Updating docker-compose.yml for production..."
+        cp docker-compose.yml docker-compose.yml.backup
+        
+        # Update backend environment variables
+        sed -i 's|REDDIT_REDIRECT_URI=http://localhost:5000/api/auth/reddit/callback|REDDIT_REDIRECT_URI=http://148.230.83.37:5000/api/auth/reddit/callback|g' docker-compose.yml
+        sed -i 's|CLIENT_URL=http://localhost:3000|CLIENT_URL=http://148.230.83.37:3000|g' docker-compose.yml
+        sed -i 's|NODE_ENV=development|NODE_ENV=production|g' docker-compose.yml
+        
+        # Update frontend environment variables
+        sed -i 's|REACT_APP_API_URL=http://localhost:5000|REACT_APP_API_URL=http://148.230.83.37:5000|g' docker-compose.yml
+        
         # Rebuild only application containers, keep database and redis running
         echo "🔄 Rebuilding application containers with latest code..."
         
