@@ -57,8 +57,16 @@ jobs:
         
         echo "🚀 Starting deployment to VPS..."
         
-        # Navigate to project directory
-        cd /root/NFLwithClaude
+        # Clone repository if it doesn't exist, otherwise navigate to it
+        if [ ! -d "/root/NFLwithClaude" ]; then
+          echo "📥 Cloning repository..."
+          cd /root
+          git clone https://github.com/LofaiSonic/broncos-pickems.git NFLwithClaude
+          cd NFLwithClaude
+        else
+          echo "📁 Navigating to existing project directory..."
+          cd /root/NFLwithClaude
+        fi
         
         # Backup current deployment
         echo "📦 Creating backup..."
@@ -95,10 +103,10 @@ jobs:
         REACT_APP_FRONTEND_URL=http://148.230.83.37:3000
         ENVEOF
         
-        # Install dependencies if package files changed
+        # Install dependencies if package files changed or if this is a fresh clone
         echo "📦 Installing dependencies..."
-        if [[ $(git diff HEAD~1 HEAD --name-only | grep -E "(package|package-lock)\.json") ]]; then
-          echo "Package files changed, reinstalling dependencies..."
+        if [[ $(git diff HEAD~1 HEAD --name-only | grep -E "(package|package-lock)\.json") ]] || [[ ! -f "node_modules/.package-lock.json" ]]; then
+          echo "Package files changed or fresh installation needed, installing dependencies..."
           npm ci
           cd server && npm ci && cd ..
           cd client && npm ci && cd ..
