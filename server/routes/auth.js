@@ -11,9 +11,12 @@ router.get('/reddit', (req, res) => {
   const state = Math.random().toString(36).substring(7);
   const scopes = 'identity';
   
-  // Always use old.reddit.com for OAuth to ensure consistent web-based flow
-  // www.reddit.com on mobile can cause issues with app redirects
-  const redditDomain = 'old.reddit.com';
+  // Detect mobile devices from User-Agent
+  const userAgent = req.headers['user-agent'] || '';
+  const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent);
+  
+  // Use www.reddit.com for mobile (opens app), old.reddit.com for desktop (stays in browser)
+  const redditDomain = isMobile ? 'www.reddit.com' : 'old.reddit.com';
   
   const redditAuthUrl = `https://${redditDomain}/api/v1/authorize?` +
     `client_id=${process.env.REDDIT_CLIENT_ID}&` +
@@ -22,6 +25,9 @@ router.get('/reddit', (req, res) => {
     `redirect_uri=${encodeURIComponent(process.env.REDDIT_REDIRECT_URI)}&` +
     `duration=permanent&` +
     `scope=${scopes}`;
+  
+  console.log(`Mobile OAuth: isMobile=${isMobile}, domain=${redditDomain}, userAgent=${userAgent}`);
+  console.log(`Reddit OAuth URL: ${redditAuthUrl}`);
   
   res.redirect(redditAuthUrl);
 });
