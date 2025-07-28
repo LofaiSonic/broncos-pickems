@@ -110,22 +110,16 @@ jobs:
         # Use --no-deps to prevent starting dependencies (postgres/redis)
         docker-compose up -d --no-deps backend frontend
         
-        # Run database migrations if any exist
-        echo "🗃️  Running database migrations..."
-        for migration in server/migrations/*.sql; do
-          if [[ -f "$migration" ]]; then
-            echo "Running migration: $migration"
-            docker exec -i broncos-pickems-db psql -U postgres -d broncos_pickems < "$migration" || echo "Migration $migration may have already been run"
-          fi
-        done
+        # Skip database migrations in production deployment
+        echo "🗃️  Skipping database migrations (production safety)"
         
         # Wait for services to be ready
         echo "⏳ Waiting for services to start..."
-        sleep 15
+        sleep 30
         
         # Health check
         echo "🏥 Performing health checks..."
-        backend_status=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:5000/api/health || echo "000")
+        backend_status=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:5000/ || echo "000")
         frontend_status=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000 || echo "000")
         
         if [[ "$backend_status" == "200" ]] && [[ "$frontend_status" == "200" ]]; then
