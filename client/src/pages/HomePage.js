@@ -14,7 +14,7 @@ const HomePage = () => {
       >
         <div className="container">
           <h1 className="text-4xl font-bold mb-md" style={{ color: 'var(--broncos-white)'}}>
-            🏈 Denver Broncos Pickems League
+            🏈 Denver Broncos Pickems League 🚀
           </h1>
           <p className="text-xl mb-lg text-slate-200 max-w-2xl mx-auto" style={{ color: 'var(--broncos-white)'}}>
             Join the ultimate NFL predictions game for Broncos fans. 

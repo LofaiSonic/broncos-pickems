@@ -12,6 +12,8 @@ const cacheService = require('./services/cache');
 const jobQueueService = require('./services/jobQueue');
 require('dotenv').config();
 
+// GitHub Actions deployment test - updated backend 🚀
+
 // Function to fetch injury data from ESPN API for a team
 async function fetchTeamInjuries(teamId) {
   try {
