@@ -8,6 +8,8 @@ const nfl2025Api = require('./services/nfl2025Api');
 const espnOddsAPI = require('./services/espnOddsApi');
 const oddsScheduler = require('./services/oddsScheduler');
 const leaderboardScheduler = require('./services/leaderboardScheduler');
+const cacheService = require('./services/cache');
+const jobQueueService = require('./services/jobQueue');
 require('dotenv').config();
 
 // Function to fetch injury data from ESPN API for a team
@@ -2531,9 +2533,25 @@ app.get('/api/games/season/:seasonType/week/:week', async (req, res) => {
 });
 
 // Start the server and initialize automatic updates
-app.listen(PORT, () => {
+const server = app.listen(PORT, async () => {
   console.log(`🏈 Minimal Broncos Server running on port ${PORT}`);
   console.log('✅ Server started successfully!');
+  
+  // Initialize cache service
+  try {
+    await cacheService.initialize();
+    console.log('✅ Cache service initialized');
+  } catch (error) {
+    console.error('❌ Failed to initialize cache service:', error.message);
+  }
+  
+  // Initialize job queue service
+  try {
+    await jobQueueService.initialize();
+    console.log('✅ Job queue service initialized');
+  } catch (error) {
+    console.error('❌ Failed to initialize job queue service:', error.message);
+  }
   
   // Initialize automatic updates service
   try {
@@ -2556,4 +2574,27 @@ app.listen(PORT, () => {
     console.error('❌ Failed to start leaderboard scheduler:', error.message);
   }
 });
+
+// Graceful shutdown handling
+process.on('SIGTERM', async () => {
+  console.log('🛑 SIGTERM received, shutting down gracefully...');
+  
+  // Stop accepting new requests
+  server.close(() => {
+    console.log('✅ HTTP server closed');
+  });
+  
+  // Shutdown services
+  try {
+    await jobQueueService.shutdown();
+    await cacheService.shutdown();
+    await db.shutdown();
+    console.log('✅ All services shut down successfully');
+    process.exit(0);
+  } catch (error) {
+    console.error('❌ Error during shutdown:', error.message);
+    process.exit(1);
+  }
+});
+
 // restart trigger

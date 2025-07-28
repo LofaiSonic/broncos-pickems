@@ -26,7 +26,13 @@
       "Bash(grep:*)",
       "WebFetch(domain:www.nfl.com)",
       "WebFetch(domain:www.espn.com)",
-      "Bash(docker cp:*)"
+      "Bash(docker cp:*)",
+      "Bash(docker restart:*)",
+      "Bash(start /B \"C:\\Users\\bryan\\Downloads\\ngrok-v3-stable-windows-amd64\\ngrok.exe\" http 5000)",
+      "Bash(ssh:*)",
+      "Bash(scp:*)",
+      "Bash(ls:*)",
+      "Bash(find:*)"
     ],
     "deny": []
   }

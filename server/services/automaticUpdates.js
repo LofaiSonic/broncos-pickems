@@ -1,6 +1,8 @@
 const cron = require('node-cron');
 const axios = require('axios');
 const db = require('../models/database');
+const jobQueueService = require('./jobQueue');
+const cacheService = require('./cache');
 
 class AutomaticUpdateService {
   constructor() {

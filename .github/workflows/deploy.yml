@@ -1,0 +1,190 @@
+name: Deploy to VPS
+
+on:
+  push:
+    branches: [ master ]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: |
+          package-lock.json
+          server/package-lock.json
+          client/package-lock.json
+    
+    - name: Install dependencies
+      run: |
+        npm ci
+        cd server && npm ci
+        cd ../client && npm ci
+        cd ..
+    
+    - name: Run tests (if any)
+      run: |
+        # Add test commands here when tests are available
+        echo "No tests configured yet"
+    
+    - name: Build client
+      run: |
+        cd client
+        npm run build
+        cd ..
+    
+    - name: Setup SSH
+      run: |
+        mkdir -p ~/.ssh
+        echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_rsa
+        chmod 600 ~/.ssh/id_rsa
+        ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
+    
+    - name: Deploy to VPS
+      run: |
+        # Create deployment script
+        cat << 'EOF' > deploy.sh
+        #!/bin/bash
+        set -e
+        
+        echo "🚀 Starting deployment to VPS..."
+        
+        # Navigate to project directory
+        cd /root/NFLwithClaude
+        
+        # Backup current deployment
+        echo "📦 Creating backup..."
+        cp -r . /root/backup-$(date +%Y%m%d-%H%M%S) || true
+        
+        # Pull latest changes
+        echo "📥 Pulling latest changes..."
+        git fetch origin
+        git reset --hard origin/master
+        
+        # Update environment files for production
+        echo "⚙️  Updating environment configuration..."
+        
+        # Create production environment file
+        cat << 'ENVEOF' > server/.env.production
+        NODE_ENV=production
+        PORT=5000
+        DB_HOST=broncos-pickems-db
+        DB_PORT=5432
+        DB_NAME=broncos_pickems
+        DB_USER=postgres
+        DB_PASSWORD=broncos2025!
+        REDIS_URL=redis://broncos-pickems-redis:6379
+        JWT_SECRET=your-super-secret-jwt-key-for-production-change-this
+        REDDIT_CLIENT_ID=xq4FOsMi95C_qCAbgFSkxA
+        REDDIT_CLIENT_SECRET=IVWg_kOZPRz6JYN8_BRvx-AwNJLCOw
+        REDDIT_REDIRECT_URI=http://148.230.83.37:5000/api/auth/reddit/callback
+        FRONTEND_URL=http://148.230.83.37:3000
+        ENVEOF
+        
+        # Update client environment for production
+        cat << 'ENVEOF' > client/.env.production
+        REACT_APP_API_URL=http://148.230.83.37:5000
+        REACT_APP_FRONTEND_URL=http://148.230.83.37:3000
+        ENVEOF
+        
+        # Install dependencies if package files changed
+        echo "📦 Installing dependencies..."
+        if [[ $(git diff HEAD~1 HEAD --name-only | grep -E "(package|package-lock)\.json") ]]; then
+          echo "Package files changed, reinstalling dependencies..."
+          npm ci
+          cd server && npm ci && cd ..
+          cd client && npm ci && cd ..
+        else
+          echo "No package changes detected"
+        fi
+        
+        # Build client if frontend changes detected
+        echo "🔨 Building client..."
+        if [[ $(git diff HEAD~1 HEAD --name-only | grep -E "client/") ]] || [[ ! -d "client/build" ]]; then
+          echo "Frontend changes detected or build missing, rebuilding..."
+          cd client
+          npm run build
+          cd ..
+        else
+          echo "No frontend changes detected"
+        fi
+        
+        # Copy built files to containers
+        echo "📂 Updating containers with new code..."
+        
+        # Update backend container
+        docker exec broncos-pickems-backend cp /app/minimal.js /app/minimal.js.backup || true
+        docker cp server/. broncos-pickems-backend:/app/
+        
+        # Update frontend container with built files
+        docker cp client/. broncos-pickems-frontend:/app/
+        
+        # Run database migrations
+        echo "🗃️  Running database migrations..."
+        if [[ $(git diff HEAD~1 HEAD --name-only | grep -E "migrations/.*\.sql") ]]; then
+          echo "New migrations detected, running them..."
+          for migration in server/migrations/*.sql; do
+            if [[ -f "$migration" ]]; then
+              echo "Running migration: $migration"
+              docker exec -i broncos-pickems-db psql -U postgres -d broncos_pickems < "$migration" || echo "Migration $migration may have already been run"
+            fi
+          done
+        else
+          echo "No new migrations detected"
+        fi
+        
+        # Restart containers to pick up changes
+        echo "🔄 Restarting containers..."
+        docker restart broncos-pickems-backend
+        docker restart broncos-pickems-frontend
+        
+        # Wait for services to be ready
+        echo "⏳ Waiting for services to start..."
+        sleep 10
+        
+        # Health check
+        echo "🏥 Performing health checks..."
+        backend_status=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:5000/health || echo "000")
+        frontend_status=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000 || echo "000")
+        
+        if [[ "$backend_status" == "200" ]] && [[ "$frontend_status" == "200" ]]; then
+          echo "✅ Deployment successful! Backend: $backend_status, Frontend: $frontend_status"
+          
+          # Log successful deployment
+          echo "$(date): Deployment successful - commit $(git rev-parse --short HEAD)" >> /root/deployment.log
+        else
+          echo "❌ Health check failed! Backend: $backend_status, Frontend: $frontend_status"
+          echo "$(date): Deployment failed - commit $(git rev-parse --short HEAD)" >> /root/deployment.log
+          exit 1
+        fi
+        
+        echo "🎉 Deployment completed successfully!"
+        EOF
+        
+        # Make script executable and run it
+        chmod +x deploy.sh
+        
+        # Copy deployment script to VPS and execute
+        scp -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no deploy.sh root@${{ secrets.VPS_HOST }}:/root/deploy.sh
+        ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no root@${{ secrets.VPS_HOST }} 'chmod +x /root/deploy.sh && /root/deploy.sh'
+    
+    - name: Notify on success
+      if: success()
+      run: |
+        echo "✅ Deployment to VPS completed successfully!"
+        echo "🌐 Frontend: http://${{ secrets.VPS_HOST }}:3000"
+        echo "🔧 Backend: http://${{ secrets.VPS_HOST }}:5000"
+    
+    - name: Notify on failure
+      if: failure()
+      run: |
+        echo "❌ Deployment failed! Check the logs above for details."
+        exit 1

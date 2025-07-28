@@ -39,14 +39,14 @@ services:
       dockerfile: Dockerfile
     container_name: broncos-pickems-backend
     environment:
-      - NODE_ENV=development
-      - DATABASE_URL=postgresql://postgres:password123@postgres:5432/broncos_pickems
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://postgres:password123@postgres:5432/broncos_pickems?sslmode=disable
       - JWT_SECRET=your_jwt_secret_key_here_minimum_32_chars
       - REDDIT_CLIENT_ID=rBkjc74Jhi2u7pFWuBlqWA
       - REDDIT_CLIENT_SECRET=YfdhXXw85hTfJKk5nhGj1NNCFv92Gg
-      - REDDIT_REDIRECT_URI=http://localhost:5000/api/auth/reddit/callback
+      - REDDIT_REDIRECT_URI=http://148.230.83.37:5000/api/auth/reddit/callback
       - REDDIT_USER_AGENT=BroncosPickemsLeague/1.0
-      - CLIENT_URL=http://localhost:3000
+      - CLIENT_URL=http://148.230.83.37:3000
       - REDIS_URL=redis://redis:6379
     ports:
       - "5000:5000"
@@ -59,7 +59,7 @@ services:
     networks:
       - broncos-network
     restart: unless-stopped
-    command: npm run dev
+    command: npm start
 
   # Frontend React App
   frontend:
@@ -68,7 +68,7 @@ services:
       dockerfile: Dockerfile
     container_name: broncos-pickems-frontend
     environment:
-      - REACT_APP_API_URL=http://localhost:5000
+      - REACT_APP_API_URL=http://148.230.83.37:5000
     ports:
       - "3000:3000"
     depends_on:

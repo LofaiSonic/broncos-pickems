@@ -1,0 +1,53 @@
+                                                                                                ?column?                                                                                                
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ INSERT INTO games (season_id, week, home_team_id, away_team_id, game_time, is_final, picks_locked, season_type, season_year) VALUES (2, 'pre1', 11, 18, '2025-07-31 20:00:00', true, true, 1, 2025);
+ INSERT INTO games (season_id, week, home_team_id, away_team_id, game_time, is_final, picks_locked, season_type, season_year) VALUES (2, 'pre2', 1, 16, '2025-08-07 20:00:00', false, false, 1, 2025);
+ INSERT INTO games (season_id, week, home_team_id, away_team_id, game_time, is_final, picks_locked, season_type, season_year) VALUES (2, 'pre2', 2, 11, '2025-08-08 20:00:00', false, false, 1, 2025);
+ INSERT INTO games (season_id, week, home_team_id, away_team_id, game_time, is_final, picks_locked, season_type, season_year) VALUES (2, 'pre2', 15, 27, '2025-08-08 20:00:00', false, false, 1, 2025);
+ INSERT INTO games (season_id, week, home_team_id, away_team_id, game_time, is_final, picks_locked, season_type, season_year) VALUES (2, 'pre2', 5, 8, '2025-08-08 20:00:00', false, false, 1, 2025);
+ INSERT INTO games (season_id, week, home_team_id, away_team_id, game_time, is_final, picks_locked, season_type, season_year) VALUES (2, 'pre2', 4, 24, '2025-08-08 20:00:00', false, false, 1, 2025);
+ INSERT INTO games (season_id, week, home_team_id, away_team_id, game_time, is_final, picks_locked, season_type, season_year) VALUES (2, 'pre2', 3, 14, '2025-08-08 20:00:00', false, false, 1, 2025);
+ INSERT INTO games (season_id, week, home_team_id, away_team_id, game_time, is_final, picks_locked, season_type, season_year) VALUES (2, 'pre2', 12, 25, '2025-08-08 20:00:00', false, false, 1, 2025);
+ INSERT INTO games (season_id, week, home_team_id, away_team_id, game_time, is_final, picks_locked, season_type, season_year) VALUES (2, 'pre2', 6, 20, '2025-08-08 20:00:00', false, false, 1, 2025);
+ INSERT INTO games (season_id, week, home_team_id, away_team_id, game_time, is_final, picks_locked, season_type, season_year) VALUES (2, 'pre2', 21, 13, '2025-08-09 20:00:00', false, false, 1, 2025);
+ INSERT INTO games (season_id, week, home_team_id, away_team_id, game_time, is_final, picks_locked, season_type, season_year) VALUES (2, 'pre2', 22, 32, '2025-08-09 20:00:00', false, false, 1, 2025);
+ INSERT INTO games (season_id, week, home_team_id, away_team_id, game_time, is_final, picks_locked, season_type, season_year) VALUES (2, 'pre2', 19, 9, '2025-08-09 20:00:00', false, false, 1, 2025);
+ INSERT INTO games (season_id, week, home_team_id, away_team_id, game_time, is_final, picks_locked, season_type, season_year) VALUES (2, 'pre2', 18, 23, '2025-08-09 20:00:00', false, false, 1, 2025);
+ INSERT INTO games (season_id, week, home_team_id, away_team_id, game_time, is_final, picks_locked, season_type, season_year) VALUES (2, 'pre2', 26, 7, '2025-08-09 20:00:00', false, false, 1, 2025);
+ INSERT INTO games (season_id, week, home_team_id, away_team_id, game_time, is_final, picks_locked, season_type, season_year) VALUES (2, 'pre2', 29, 17, '2025-08-10 20:00:00', false, false, 1, 2025);
+ INSERT INTO games (season_id, week, home_team_id, away_team_id, game_time, is_final, picks_locked, season_type, season_year) VALUES (2, 'pre2', 28, 10, '2025-08-10 20:00:00', false, false, 1, 2025);
+ INSERT INTO games (season_id, week, home_team_id, away_team_id, game_time, is_final, picks_locked, season_type, season_year) VALUES (2, 'pre2', 30, 31, '2025-08-10 20:00:00', false, false, 1, 2025);
+ INSERT INTO games (season_id, week, home_team_id, away_team_id, game_time, is_final, picks_locked, season_type, season_year) VALUES (2, 'pre3', 2, 31, '2025-08-14 20:00:00', false, false, 1, 2025);
+ INSERT INTO games (season_id, week, home_team_id, away_team_id, game_time, is_final, picks_locked, season_type, season_year) VALUES (2, 'pre3', 11, 20, '2025-08-15 20:00:00', false, false, 1, 2025);
+ INSERT INTO games (season_id, week, home_team_id, away_team_id, game_time, is_final, picks_locked, season_type, season_year) VALUES (2, 'pre3', 13, 5, '2025-08-15 20:00:00', false, false, 1, 2025);
+ INSERT INTO games (season_id, week, home_team_id, away_team_id, game_time, is_final, picks_locked, season_type, season_year) VALUES (2, 'pre3', 10, 1, '2025-08-15 20:00:00', false, false, 1, 2025);
+ INSERT INTO games (season_id, week, home_team_id, away_team_id, game_time, is_final, picks_locked, season_type, season_year) VALUES (2, 'pre3', 9, 3, '2025-08-15 20:00:00', false, false, 1, 2025);
+ INSERT INTO games (season_id, week, home_team_id, away_team_id, game_time, is_final, picks_locked, season_type, season_year) VALUES (2, 'pre3', 14, 12, '2025-08-15 20:00:00', false, false, 1, 2025);
+ INSERT INTO games (season_id, week, home_team_id, away_team_id, game_time, is_final, picks_locked, season_type, season_year) VALUES (2, 'pre3', 19, 18, '2025-08-16 20:00:00', false, false, 1, 2025);
+ INSERT INTO games (season_id, week, home_team_id, away_team_id, game_time, is_final, picks_locked, season_type, season_year) VALUES (2, 'pre3', 21, 22, '2025-08-16 20:00:00', false, false, 1, 2025);
+ INSERT INTO games (season_id, week, home_team_id, away_team_id, game_time, is_final, picks_locked, season_type, season_year) VALUES (2, 'pre3', 23, 15, '2025-08-16 20:00:00', false, false, 1, 2025);
+ INSERT INTO games (season_id, week, home_team_id, away_team_id, game_time, is_final, picks_locked, season_type, season_year) VALUES (2, 'pre3', 17, 28, '2025-08-16 20:00:00', false, false, 1, 2025);
+ INSERT INTO games (season_id, week, home_team_id, away_team_id, game_time, is_final, picks_locked, season_type, season_year) VALUES (2, 'pre3', 26, 8, '2025-08-17 20:00:00', false, false, 1, 2025);
+ INSERT INTO games (season_id, week, home_team_id, away_team_id, game_time, is_final, picks_locked, season_type, season_year) VALUES (2, 'pre3', 6, 4, '2025-08-17 20:00:00', false, false, 1, 2025);
+ INSERT INTO games (season_id, week, home_team_id, away_team_id, game_time, is_final, picks_locked, season_type, season_year) VALUES (2, 'pre3', 29, 16, '2025-08-17 20:00:00', false, false, 1, 2025);
+ INSERT INTO games (season_id, week, home_team_id, away_team_id, game_time, is_final, picks_locked, season_type, season_year) VALUES (2, 'pre3', 24, 25, '2025-08-17 20:00:00', false, false, 1, 2025);
+ INSERT INTO games (season_id, week, home_team_id, away_team_id, game_time, is_final, picks_locked, season_type, season_year) VALUES (2, 'pre3', 30, 27, '2025-08-17 20:00:00', false, false, 1, 2025);
+ INSERT INTO games (season_id, week, home_team_id, away_team_id, game_time, is_final, picks_locked, season_type, season_year) VALUES (2, 'pre3', 32, 7, '2025-08-18 20:00:00', false, false, 1, 2025);
+ INSERT INTO games (season_id, week, home_team_id, away_team_id, game_time, is_final, picks_locked, season_type, season_year) VALUES (2, 'pre4', 7, 14, '2025-08-21 20:00:00', false, false, 1, 2025);
+ INSERT INTO games (season_id, week, home_team_id, away_team_id, game_time, is_final, picks_locked, season_type, season_year) VALUES (2, 'pre4', 24, 22, '2025-08-21 20:00:00', false, false, 1, 2025);
+ INSERT INTO games (season_id, week, home_team_id, away_team_id, game_time, is_final, picks_locked, season_type, season_year) VALUES (2, 'pre4', 5, 27, '2025-08-21 20:00:00', false, false, 1, 2025);
+ INSERT INTO games (season_id, week, home_team_id, away_team_id, game_time, is_final, picks_locked, season_type, season_year) VALUES (2, 'pre4', 12, 29, '2025-08-21 20:00:00', false, false, 1, 2025);
+ INSERT INTO games (season_id, week, home_team_id, away_team_id, game_time, is_final, picks_locked, season_type, season_year) VALUES (2, 'pre4', 9, 2, '2025-08-21 20:00:00', false, false, 1, 2025);
+ INSERT INTO games (season_id, week, home_team_id, away_team_id, game_time, is_final, picks_locked, season_type, season_year) VALUES (2, 'pre4', 1, 17, '2025-08-21 20:00:00', false, false, 1, 2025);
+ INSERT INTO games (season_id, week, home_team_id, away_team_id, game_time, is_final, picks_locked, season_type, season_year) VALUES (2, 'pre4', 8, 19, '2025-08-21 20:00:00', false, false, 1, 2025);
+ INSERT INTO games (season_id, week, home_team_id, away_team_id, game_time, is_final, picks_locked, season_type, season_year) VALUES (2, 'pre4', 11, 13, '2025-08-21 20:00:00', false, false, 1, 2025);
+ INSERT INTO games (season_id, week, home_team_id, away_team_id, game_time, is_final, picks_locked, season_type, season_year) VALUES (2, 'pre4', 25, 26, '2025-08-22 20:00:00', false, false, 1, 2025);
+ INSERT INTO games (season_id, week, home_team_id, away_team_id, game_time, is_final, picks_locked, season_type, season_year) VALUES (2, 'pre4', 28, 18, '2025-08-22 20:00:00', false, false, 1, 2025);
+ INSERT INTO games (season_id, week, home_team_id, away_team_id, game_time, is_final, picks_locked, season_type, season_year) VALUES (2, 'pre4', 31, 21, '2025-08-22 20:00:00', false, false, 1, 2025);
+ INSERT INTO games (season_id, week, home_team_id, away_team_id, game_time, is_final, picks_locked, season_type, season_year) VALUES (2, 'pre4', 23, 10, '2025-08-22 20:00:00', false, false, 1, 2025);
+ INSERT INTO games (season_id, week, home_team_id, away_team_id, game_time, is_final, picks_locked, season_type, season_year) VALUES (2, 'pre4', 20, 15, '2025-08-22 20:00:00', false, false, 1, 2025);
+ INSERT INTO games (season_id, week, home_team_id, away_team_id, game_time, is_final, picks_locked, season_type, season_year) VALUES (2, 'pre4', 16, 6, '2025-08-22 20:00:00', false, false, 1, 2025);
+ INSERT INTO games (season_id, week, home_team_id, away_team_id, game_time, is_final, picks_locked, season_type, season_year) VALUES (2, 'pre4', 32, 3, '2025-08-23 20:00:00', false, false, 1, 2025);
+ INSERT INTO games (season_id, week, home_team_id, away_team_id, game_time, is_final, picks_locked, season_type, season_year) VALUES (2, 'pre4', 30, 4, '2025-08-23 20:00:00', false, false, 1, 2025);
+(49 rows)
+

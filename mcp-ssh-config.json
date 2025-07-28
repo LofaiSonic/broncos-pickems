@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "ssh": {
+      "command": "npx",
+      "args": ["@aiondadotcom/mcp-ssh"],
+      "env": {
+        "SSH_HOST": "148.230.83.37",
+        "SSH_USER": "root",
+        "SSH_PORT": "22"
+      }
+    }
+  }
+}
