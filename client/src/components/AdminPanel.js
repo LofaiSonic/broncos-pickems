@@ -267,6 +267,26 @@ const AdminPanel = () => {
     }
   };
 
+  const handleCopyProdDatabase = async () => {
+    if (!window.confirm('This will copy the production database to development, replacing all dev data. This cannot be undone. Continue?')) {
+      return;
+    }
+
+    try {
+      setProcessing(true);
+      const response = await axios.post('/api/admin/copy-prod-to-dev');
+      alert(`✅ Production database copied to development successfully!\n\nUsers: ${response.data.users}\nPicks: ${response.data.picks}\nGames: ${response.data.games}`);
+    } catch (error) {
+      console.error('Error copying production database:', error);
+      alert('Error copying production database. Check console for details.');
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  // Check if running on localhost
+  const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+
   const handleCompleteGamesForWeek = async () => {
     if (!selectedWeek) {
       alert('Please select a week to simulate');
@@ -587,6 +607,32 @@ const AdminPanel = () => {
           {activeTab === 'data' && (
             <div className="space-y-6">
               <h3 className="text-lg font-semibold">Data Management</h3>
+              
+              {/* Development Tools - Only show on localhost */}
+              {isLocalhost && (
+                <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-lg">
+                  <h4 className="font-semibold text-yellow-800 mb-3">🛠️ Development Tools (Localhost Only)</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="p-4 border border-yellow-300 rounded-lg bg-yellow-25">
+                      <h5 className="font-semibold mb-2">Copy Production Database</h5>
+                      <p className="text-sm text-yellow-700 mb-4">
+                        Copy the entire production database to development for testing with real data. 
+                        This will replace all development data.
+                      </p>
+                      <button
+                        onClick={handleCopyProdDatabase}
+                        disabled={processing}
+                        className={`btn btn-warning w-full ${processing ? 'opacity-50' : ''}`}
+                      >
+                        {processing ? 'Copying Database...' : '📋 Copy Prod to Dev'}
+                      </button>
+                    </div>
+                  </div>
+                  <p className="text-xs text-yellow-600 mt-2">
+                    ⚠️ This feature only appears when running on localhost for safety
+                  </p>
+                </div>
+              )}
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="p-4 border border-gray-200 rounded-lg">

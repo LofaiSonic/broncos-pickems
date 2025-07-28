@@ -33,7 +33,20 @@
       "Bash(scp:*)",
       "Bash(ls:*)",
       "Bash(find:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(ssh root@148.230.83.37 \"which node && which npm && node --version && npm --version\")",
+      "Bash(ssh vps \"ls -la /root/\")",
+      "Bash(ssh vps \"which node && which npm && node --version && npm --version\")",
+      "Bash(ssh vps \"cd /root/NFLwithClaude && ls -la\")",
+      "Bash(ssh vps \"docker ps\")",
+      "Bash(git commit -m \"$(cat <<''EOF''\nFix deployment script to use Docker containers properly\n\n- Remove npm dependency installation (not needed with Docker)\n- Use docker-compose down/up --build for proper container rebuild\n- Fix health check endpoint to /api/health\n- Simplify deployment process to work with existing Docker setup\n- Run all migrations automatically without conditional logic\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(git commit -m \"$(cat <<''EOF''\nFix deployment to preserve production database and Redis\n\n- Only rebuild backend and frontend containers, not database/redis\n- Use targeted container stop/rm/rebuild to avoid data loss\n- Keep persistent data volumes intact during deployment\n- Safer deployment that preserves production data\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(git commit -m \"$(cat <<''EOF''\nUse --no-deps flag to prevent recreating database containers\n\n- Use docker-compose build to build images separately  \n- Use --no-deps flag to start only backend/frontend without dependencies\n- Prevents docker-compose from trying to recreate postgres/redis containers\n- Ensures zero risk to production database data\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(git commit -m \"$(cat <<''EOF''\nRemove dangerous database migrations from production deployment\n\n- Skip all database migrations during deployment for production safety\n- Migrations should only be run manually after careful review\n- Increase health check wait time to 30 seconds for stability\n- Change backend health check to root endpoint instead of /api/health\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(git checkout:*)",
+      "Bash(createdb:*)",
+      "Bash(mv:*)",
+      "Bash(pkill:*)"
     ],
     "deny": []
   }

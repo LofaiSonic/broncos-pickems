@@ -2115,7 +2115,7 @@ app.get('/api/leaderboard/week/:week', async (req, res) => {
 // Get picks comparison for a specific week
 app.get('/api/picks/week/:week/compare', async (req, res) => {
   try {
-    const week = parseInt(req.params.week);
+    const week = req.params.week; // Don't parse as int, keep as string for preseason weeks
     
     // Get all games for the week with pick data
     const result = await db.query(`
@@ -2192,12 +2192,98 @@ app.get('/api/picks/week/:week/compare', async (req, res) => {
       }
     });
 
-    const games = Array.from(gamesMap.values());
+    // Calculate pick percentages for each game
+    const games = Array.from(gamesMap.values()).map(game => {
+      const totalPicks = game.picks.length;
+      
+      if (totalPicks > 0) {
+        const homeTeamPicks = game.picks.filter(pick => pick.pickedTeamId === game.homeTeam.id).length;
+        const awayTeamPicks = game.picks.filter(pick => pick.pickedTeamId === game.awayTeam.id).length;
+        
+        game.pickPercentages = {
+          totalPicks,
+          homeTeamPicks,
+          awayTeamPicks,
+          homeTeamPercentage: Math.round((homeTeamPicks / totalPicks) * 100),
+          awayTeamPercentage: Math.round((awayTeamPicks / totalPicks) * 100)
+        };
+      } else {
+        game.pickPercentages = {
+          totalPicks: 0,
+          homeTeamPicks: 0,
+          awayTeamPicks: 0,
+          homeTeamPercentage: 0,
+          awayTeamPercentage: 0
+        };
+      }
+      
+      return game;
+    });
+    
     res.json(games);
     
   } catch (error) {
     console.error('Error fetching picks comparison:', error);
     res.status(500).json({ error: 'Failed to fetch picks comparison' });
+  }
+});
+
+// Copy production database to development (localhost only)
+app.post('/api/admin/copy-prod-to-dev', async (req, res) => {
+  try {
+    // Security check - only allow on localhost
+    const isLocalhost = req.hostname === 'localhost' || req.hostname === '127.0.0.1';
+    if (!isLocalhost) {
+      return res.status(403).json({ error: 'This operation is only allowed on localhost' });
+    }
+
+    console.log('🔄 Starting production database copy to development...');
+
+    const { exec } = require('child_process');
+    const util = require('util');
+    const execAsync = util.promisify(exec);
+
+    // Step 1: Drop and recreate the dev database
+    console.log('1. Recreating development database...');
+    await execAsync('docker exec broncos-pickems-db psql -U postgres -c "DROP DATABASE IF EXISTS broncos_pickems_dev;"');
+    await execAsync('docker exec broncos-pickems-db psql -U postgres -c "CREATE DATABASE broncos_pickems_dev;"');
+
+    // Step 2: Copy entire production database to dev
+    console.log('2. Copying production data to development...');
+    await execAsync(
+      'docker exec broncos-pickems-db pg_dump -U postgres broncos_pickems | docker exec -i broncos-pickems-db psql -U postgres -d broncos_pickems_dev'
+    );
+
+    // Step 3: Get stats for confirmation
+    console.log('3. Getting database statistics...');
+    const { stdout: userCount } = await execAsync(
+      'docker exec broncos-pickems-db psql -U postgres -d broncos_pickems_dev -t -c "SELECT COUNT(*) FROM users;"'
+    );
+    
+    const { stdout: pickCount } = await execAsync(
+      'docker exec broncos-pickems-db psql -U postgres -d broncos_pickems_dev -t -c "SELECT COUNT(*) FROM picks;"'
+    );
+    
+    const { stdout: gameCount } = await execAsync(
+      'docker exec broncos-pickems-db psql -U postgres -d broncos_pickems_dev -t -c "SELECT COUNT(*) FROM games;"'
+    );
+
+    console.log('✅ Database copy completed successfully!');
+
+    res.json({
+      success: true,
+      message: 'Production database copied to development successfully',
+      users: parseInt(userCount.trim()),
+      picks: parseInt(pickCount.trim()),
+      games: parseInt(gameCount.trim())
+    });
+
+  } catch (error) {
+    console.error('❌ Error copying database:', error);
+    res.status(500).json({ 
+      error: 'Failed to copy production database',
+      details: error.message 
+    });
   }
 });
 
