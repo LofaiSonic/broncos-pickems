@@ -46,7 +46,9 @@
       "Bash(git checkout:*)",
       "Bash(createdb:*)",
       "Bash(mv:*)",
-      "Bash(pkill:*)"
+      "Bash(pkill:*)",
+      "Bash(powershell:*)",
+      "Bash(docker start:*)"
     ],
     "deny": []
   }

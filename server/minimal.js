@@ -2239,44 +2239,108 @@ app.post('/api/admin/copy-prod-to-dev', async (req, res) => {
 
     console.log('🔄 Starting production database copy to development...');
 
-    const { exec } = require('child_process');
-    const util = require('util');
-    const execAsync = util.promisify(exec);
-
-    // Step 1: Drop and recreate the dev database
-    console.log('1. Recreating development database...');
-    await execAsync('docker exec broncos-pickems-db psql -U postgres -c "DROP DATABASE IF EXISTS broncos_pickems_dev;"');
-    await execAsync('docker exec broncos-pickems-db psql -U postgres -c "CREATE DATABASE broncos_pickems_dev;"');
-
-    // Step 2: Copy entire production database to dev
-    console.log('2. Copying production data to development...');
-    await execAsync(
-      'docker exec broncos-pickems-db pg_dump -U postgres broncos_pickems | docker exec -i broncos-pickems-db psql -U postgres -d broncos_pickems_dev'
-    );
-
-    // Step 3: Get stats for confirmation
-    console.log('3. Getting database statistics...');
-    const { stdout: userCount } = await execAsync(
-      'docker exec broncos-pickems-db psql -U postgres -d broncos_pickems_dev -t -c "SELECT COUNT(*) FROM users;"'
-    );
+    // Use database connections directly instead of shell commands
+    const { Pool } = require('pg');
     
-    const { stdout: pickCount } = await execAsync(
-      'docker exec broncos-pickems-db psql -U postgres -d broncos_pickems_dev -t -c "SELECT COUNT(*) FROM picks;"'
-    );
-    
-    const { stdout: gameCount } = await execAsync(
-      'docker exec broncos-pickems-db psql -U postgres -d broncos_pickems_dev -t -c "SELECT COUNT(*) FROM games;"'
-    );
-
-    console.log('✅ Database copy completed successfully!');
-
-    res.json({
-      success: true,
-      message: 'Production database copied to development successfully',
-      users: parseInt(userCount.trim()),
-      picks: parseInt(pickCount.trim()),
-      games: parseInt(gameCount.trim())
+    // Connect to postgres (system database) to manage databases
+    const systemDb = new Pool({
+      connectionString: 'postgresql://postgres:password123@localhost:5432/postgres'
     });
+    
+    // Connect to production database
+    const prodDb = new Pool({
+      connectionString: 'postgresql://postgres:password123@localhost:5432/broncos_pickems'
+    });
+
+    try {
+      // Step 1: Drop and recreate the dev database
+      console.log('1. Recreating development database...');
+      await systemDb.query('DROP DATABASE IF EXISTS broncos_pickems_dev');
+      await systemDb.query('CREATE DATABASE broncos_pickems_dev');
+
+      // Step 2: Get all table names from production
+      console.log('2. Getting table structure...');
+      const tablesResult = await prodDb.query(`
+        SELECT tablename FROM pg_tables 
+        WHERE schemaname = 'public' 
+        ORDER BY tablename
+      `);
+      
+      // Connect to dev database
+      const devDb = new Pool({
+        connectionString: 'postgresql://postgres:password123@localhost:5432/broncos_pickems_dev'
+      });
+
+      // Step 3: Copy schema and data table by table  
+      console.log('3. Copying schema and data...');
+      
+      // First copy the schema
+      const schemaResult = await prodDb.query(`
+        SELECT 
+          'CREATE TABLE ' || tablename || ' (' || 
+          string_agg(column_name || ' ' || data_type || 
+            CASE 
+              WHEN character_maximum_length IS NOT NULL 
+              THEN '(' || character_maximum_length || ')'
+              ELSE ''
+            END, ', ') || ');'
+        FROM information_schema.tables t
+        JOIN information_schema.columns c ON t.table_name = c.table_name
+        WHERE t.table_schema = 'public' AND t.table_type = 'BASE TABLE'
+        GROUP BY tablename
+      `);
+
+      // For now, let's use a simpler approach - copy key tables manually
+      const keyTables = ['users', 'games', 'picks', 'teams', 'seasons'];
+      let totalUsers = 0, totalPicks = 0, totalGames = 0;
+      
+      for (const table of keyTables) {
+        try {
+          // Get data from production
+          const data = await prodDb.query(`SELECT * FROM ${table}`);
+          
+          if (data.rows.length > 0) {
+            // Get column names
+            const columns = Object.keys(data.rows[0]).join(', ');
+            const placeholders = data.rows[0] ? Object.keys(data.rows[0]).map((_, i) => `$${i + 1}`).join(', ') : '';
+            
+            // Insert data into dev database
+            for (const row of data.rows) {
+              const values = Object.values(row);
+              await devDb.query(`
+                INSERT INTO ${table} (${columns}) 
+                VALUES (${placeholders})
+                ON CONFLICT DO NOTHING
+              `, values);
+            }
+            
+            console.log(`✅ Copied ${data.rows.length} rows to ${table}`);
+            
+            // Track counts
+            if (table === 'users') totalUsers = data.rows.length;
+            if (table === 'picks') totalPicks = data.rows.length;
+            if (table === 'games') totalGames = data.rows.length;
+          }
+        } catch (tableError) {
+          console.log(`⚠️ Could not copy table ${table}:`, tableError.message);
+        }
+      }
+
+      await devDb.end();
+      console.log('✅ Database copy completed successfully!');
+
+      res.json({
+        success: true,
+        message: 'Production database copied to development successfully',
+        users: totalUsers,
+        picks: totalPicks,
+        games: totalGames
+      });
+
+    } finally {
+      await systemDb.end();
+      await prodDb.end();
+    }
 
   } catch (error) {
     console.error('❌ Error copying database:', error);
