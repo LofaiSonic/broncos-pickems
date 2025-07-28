@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 
 const GamePickModal = ({ 
   games, 
@@ -10,20 +10,20 @@ const GamePickModal = ({
   onPickChange, 
   formatGameTime 
 }) => {
-  const [selectedTeam, setSelectedTeam] = useState(null);
+  // const [selectedTeam, setSelectedTeam] = useState(null);
   const [showMainClose, setShowMainClose] = useState(true);
   
   const currentGame = games?.[currentGameIndex] || games?.[0];
   const currentPick = userPicks?.[currentGame?.id];
   
   // Reset selected team when game changes
-  useEffect(() => {
-    if (currentPick) {
-      setSelectedTeam(currentPick.pickedTeamId || null);
-    } else {
-      setSelectedTeam(null);
-    }
-  }, [currentGameIndex, currentPick]);
+  // useEffect(() => {
+  //   if (currentPick) {
+  //     setSelectedTeam(currentPick.pickedTeamId || null);
+  //   } else {
+  //     setSelectedTeam(null);
+  //   }
+  // }, [currentGameIndex, currentPick]);
   
   // Force iframe refresh only when game changes, not when team is selected
   const [iframeKey, setIframeKey] = useState(0);
@@ -31,8 +31,8 @@ const GamePickModal = ({
     setIframeKey(prev => prev + 1);
   }, [currentGameIndex]);
   
-  const handleTeamSelect = (teamId, isDoubleClick = false) => {
-    setSelectedTeam(teamId);
+  const handleTeamSelect = useCallback((teamId, isDoubleClick = false) => {
+    // setSelectedTeam(teamId);
     onPickChange(currentGame.id, teamId);
     
     // Update iframe content without regenerating
@@ -54,24 +54,24 @@ const GamePickModal = ({
         setTimeout(() => onClose(), 300);
       }
     }
-  };
+  }, [currentGame?.id, onPickChange, currentGameIndex, games?.length, onClose]);
   
-  const goToPrevious = () => {
+  const goToPrevious = useCallback(() => {
     if (currentGameIndex > 0) {
       onGameIndexChange(currentGameIndex - 1);
     }
-  };
+  }, [currentGameIndex, onGameIndexChange]);
   
-  const goToNext = () => {
+  const goToNext = useCallback(() => {
     if (currentGameIndex < games.length - 1) {
       onGameIndexChange(currentGameIndex + 1);
     }
-  };
+  }, [currentGameIndex, games?.length, onGameIndexChange]);
   
-  const handleSubmitPicks = () => {
+  const handleSubmitPicks = useCallback(() => {
     // Just close the modal - no confirmation needed
     onClose();
-  };
+  }, [onClose]);
   
   // const getTeamButtonStyling = (teamId) => {
   //   const isSelected = selectedTeam === teamId;

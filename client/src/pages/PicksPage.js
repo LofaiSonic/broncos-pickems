@@ -19,23 +19,6 @@ const PicksPage = () => {
   // Ref for week navigation scroll container
   const weekScrollRef = useRef(null);
 
-  useEffect(() => {
-    fetchGamesAndPicks();
-  }, [fetchGamesAndPicks]);
-
-  // Scroll to selected week after component updates
-  useEffect(() => {
-    scrollToSelectedWeek(currentWeek);
-  }, [currentWeek, seasonType]);
-
-  // Prevent modal index from being invalid when games data changes
-  useEffect(() => {
-    if (games.length > 0 && modalGameIndex >= games.length) {
-      // If modal index is beyond the new games array, clamp to last valid index
-      setModalGameIndex(games.length - 1);
-    }
-  }, [games.length, modalGameIndex]);
-
   const fetchGamesAndPicks = useCallback(async () => {
     try {
       setLoading(true);
@@ -98,6 +81,23 @@ const PicksPage = () => {
       setLoading(false);
     }
   }, [currentWeek]);
+
+  useEffect(() => {
+    fetchGamesAndPicks();
+  }, [fetchGamesAndPicks]);
+
+  // Scroll to selected week after component updates
+  useEffect(() => {
+    scrollToSelectedWeek(currentWeek);
+  }, [currentWeek, seasonType]);
+
+  // Prevent modal index from being invalid when games data changes
+  useEffect(() => {
+    if (games.length > 0 && modalGameIndex >= games.length) {
+      // If modal index is beyond the new games array, clamp to last valid index
+      setModalGameIndex(games.length - 1);
+    }
+  }, [games.length, modalGameIndex]);
 
   const handlePickChange = async (gameId, teamId) => {
     // Check if game is locked before attempting to submit
