@@ -99,12 +99,16 @@ jobs:
         # Rebuild only application containers, keep database and redis running
         echo "🔄 Rebuilding application containers with latest code..."
         
-        # Stop and rebuild only backend and frontend containers
+        # Stop only backend and frontend containers (keep postgres and redis running)
         docker stop broncos-pickems-backend broncos-pickems-frontend || true
         docker rm broncos-pickems-backend broncos-pickems-frontend || true
         
-        # Rebuild and start application containers (keeping database/redis running)
-        docker-compose up -d --build backend frontend
+        # Build new images for backend and frontend
+        docker-compose build backend frontend
+        
+        # Start only the application containers (backend and frontend)
+        # Use --no-deps to prevent starting dependencies (postgres/redis)
+        docker-compose up -d --no-deps backend frontend
         
         # Run database migrations if any exist
         echo "🗃️  Running database migrations..."
