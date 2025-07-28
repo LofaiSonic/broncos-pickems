@@ -15,18 +15,29 @@ router.get('/reddit', (req, res) => {
   const userAgent = req.headers['user-agent'] || '';
   const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent);
   
-  // Use www.reddit.com for mobile (opens app), old.reddit.com for desktop (stays in browser)
-  const redditDomain = isMobile ? 'www.reddit.com' : 'old.reddit.com';
+  let redditAuthUrl;
   
-  const redditAuthUrl = `https://${redditDomain}/api/v1/authorize?` +
-    `client_id=${process.env.REDDIT_CLIENT_ID}&` +
-    `response_type=code&` +
-    `state=${state}&` +
-    `redirect_uri=${encodeURIComponent(process.env.REDDIT_REDIRECT_URI)}&` +
-    `duration=permanent&` +
-    `scope=${scopes}`;
+  if (isMobile) {
+    // Try to use Reddit app deep link format for mobile
+    redditAuthUrl = `reddit://oauth?` +
+      `client_id=${process.env.REDDIT_CLIENT_ID}&` +
+      `response_type=code&` +
+      `state=${state}&` +
+      `redirect_uri=${encodeURIComponent(process.env.REDDIT_REDIRECT_URI)}&` +
+      `duration=permanent&` +
+      `scope=${scopes}`;
+  } else {
+    // Use old.reddit.com for desktop (stays in browser)
+    redditAuthUrl = `https://old.reddit.com/api/v1/authorize?` +
+      `client_id=${process.env.REDDIT_CLIENT_ID}&` +
+      `response_type=code&` +
+      `state=${state}&` +
+      `redirect_uri=${encodeURIComponent(process.env.REDDIT_REDIRECT_URI)}&` +
+      `duration=permanent&` +
+      `scope=${scopes}`;
+  }
   
-  console.log(`Mobile OAuth: isMobile=${isMobile}, domain=${redditDomain}, userAgent=${userAgent}`);
+  console.log(`Mobile OAuth: isMobile=${isMobile}, userAgent=${userAgent}`);
   console.log(`Reddit OAuth URL: ${redditAuthUrl}`);
   
   res.redirect(redditAuthUrl);
