@@ -31,6 +31,18 @@ const GamePickModal = ({
     setIframeKey(prev => prev + 1);
   }, [currentGameIndex]);
   
+  const goToPrevious = useCallback(() => {
+    if (currentGameIndex > 0) {
+      onGameIndexChange(currentGameIndex - 1);
+    }
+  }, [currentGameIndex, onGameIndexChange]);
+  
+  const goToNext = useCallback(() => {
+    if (currentGameIndex < games.length - 1) {
+      onGameIndexChange(currentGameIndex + 1);
+    }
+  }, [currentGameIndex, games?.length, onGameIndexChange]);
+  
   const handleTeamSelect = useCallback((teamId, isDoubleClick = false) => {
     // setSelectedTeam(teamId);
     onPickChange(currentGame.id, teamId);
@@ -48,25 +60,17 @@ const GamePickModal = ({
     // If double-click, automatically go to next game or close modal if last game
     if (isDoubleClick) {
       if (currentGameIndex < games.length - 1) {
-        setTimeout(() => goToNext(), 300); // Small delay to show selection
+        setTimeout(() => {
+          if (currentGameIndex < games.length - 1) {
+            onGameIndexChange(currentGameIndex + 1);
+          }
+        }, 300); // Small delay to show selection
       } else {
         // This is the last game, close the modal after showing selection
         setTimeout(() => onClose(), 300);
       }
     }
-  }, [currentGame?.id, onPickChange, currentGameIndex, games?.length, onClose]);
-  
-  const goToPrevious = useCallback(() => {
-    if (currentGameIndex > 0) {
-      onGameIndexChange(currentGameIndex - 1);
-    }
-  }, [currentGameIndex, onGameIndexChange]);
-  
-  const goToNext = useCallback(() => {
-    if (currentGameIndex < games.length - 1) {
-      onGameIndexChange(currentGameIndex + 1);
-    }
-  }, [currentGameIndex, games?.length, onGameIndexChange]);
+  }, [currentGame?.id, onPickChange, currentGameIndex, games?.length, onClose, onGameIndexChange]);
   
   const handleSubmitPicks = useCallback(() => {
     // Just close the modal - no confirmation needed
@@ -769,7 +773,7 @@ const GamePickModal = ({
     
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
-  }, [currentGameIndex, games?.length, goToNext, goToPrevious, handleSubmitPicks, handleTeamSelect]);
+  }, [currentGameIndex, games?.length, goToPrevious, goToNext, handleSubmitPicks, handleTeamSelect]);
   
   if (!isOpen || !games || games.length === 0) return null;
   
