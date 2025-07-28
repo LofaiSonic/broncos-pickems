@@ -10,7 +10,15 @@ const router = express.Router();
 router.get('/reddit', (req, res) => {
   const state = Math.random().toString(36).substring(7);
   const scopes = 'identity';
-  const redditAuthUrl = `https://old.reddit.com/api/v1/authorize?` +
+  
+  // Detect mobile devices from User-Agent
+  const userAgent = req.headers['user-agent'] || '';
+  const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent);
+  
+  // Use www.reddit.com for mobile (opens app), old.reddit.com for desktop (stays in browser)
+  const redditDomain = isMobile ? 'www.reddit.com' : 'old.reddit.com';
+  
+  const redditAuthUrl = `https://${redditDomain}/api/v1/authorize?` +
     `client_id=${process.env.REDDIT_CLIENT_ID}&` +
     `response_type=code&` +
     `state=${state}&` +
