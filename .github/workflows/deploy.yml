@@ -96,10 +96,15 @@ jobs:
         REACT_APP_FRONTEND_URL=http://148.230.83.37:3000
         ENVEOF
         
-        # Rebuild and redeploy containers with latest code
-        echo "🔄 Rebuilding containers with latest code..."
-        docker-compose down
-        docker-compose up -d --build
+        # Rebuild only application containers, keep database and redis running
+        echo "🔄 Rebuilding application containers with latest code..."
+        
+        # Stop and rebuild only backend and frontend containers
+        docker stop broncos-pickems-backend broncos-pickems-frontend || true
+        docker rm broncos-pickems-backend broncos-pickems-frontend || true
+        
+        # Rebuild and start application containers (keeping database/redis running)
+        docker-compose up -d --build backend frontend
         
         # Run database migrations if any exist
         echo "🗃️  Running database migrations..."
