@@ -590,7 +590,7 @@ app.get('/api/games/week/:week/picks', async (req, res) => {
       SELECT 
         g.id,
         g.week,
-        g.game_time,
+        TO_CHAR(g.game_time, 'YYYY-MM-DD"T"HH24:MI:SS') as game_time,
         g.home_score,
         g.away_score,
         g.is_final,
