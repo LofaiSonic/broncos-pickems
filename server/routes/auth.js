@@ -67,6 +67,7 @@ router.get('/reddit/callback', async (req, res) => {
     );
 
     const { access_token } = tokenResponse.data;
+    console.log('OAuth: Access token received from Reddit');
 
     // Get user profile
     const profileResponse = await axios.get('https://oauth.reddit.com/api/v1/me', {
@@ -77,6 +78,7 @@ router.get('/reddit/callback', async (req, res) => {
     });
 
     const profile = profileResponse.data;
+    console.log('OAuth: Reddit profile received:', profile.name);
 
     // Check if user exists
     let result = await db.query(
@@ -116,7 +118,9 @@ router.get('/reddit/callback', async (req, res) => {
     res.redirect(`${process.env.CLIENT_URL}/auth/success?token=${token}`);
   } catch (error) {
     console.error('Reddit OAuth error:', error);
-    res.redirect(`${process.env.CLIENT_URL}?error=oauth_failed`);
+    console.error('Error details:', error.response?.data || error.message);
+    const errorMessage = error.response?.data?.error || error.message || 'oauth_failed';
+    res.redirect(`${process.env.CLIENT_URL}?error=oauth_failed&details=${encodeURIComponent(errorMessage)}`);
   }
 });
 
