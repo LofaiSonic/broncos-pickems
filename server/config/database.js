@@ -18,8 +18,8 @@ const poolConfig = {
   keepAlive: true,
   keepAliveInitialDelayMillis: 60000, // Start keep-alive after 1 minute
   
-  // SSL settings for production
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+  // SSL settings - disabled for Docker PostgreSQL
+  ssl: false,
   
   // Application name for monitoring
   application_name: 'broncos_pickems',
