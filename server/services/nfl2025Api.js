@@ -14,55 +14,55 @@ class NFL2025ApiService {
       OFF_SEASON: 4
     };
     
-    // ESPN team ID to our database team ID mapping
+    // ESPN team ID to our database team ID mapping (based on actual DB team order)
     this.teamIdMapping = {
       // AFC East
-      1: 1,   // Buffalo Bills
-      15: 2,  // Miami Dolphins  
-      17: 3,  // New England Patriots
-      20: 4,  // New York Jets
+      1: 4,   // Buffalo Bills -> Buffalo Bills (id 4)
+      15: 20, // Miami Dolphins -> Miami Dolphins (id 20)
+      17: 22, // New England Patriots -> New England Patriots (id 22)
+      20: 25, // New York Jets -> New York Jets (id 25)
       
       // AFC North
-      2: 5,   // Baltimore Ravens
-      4: 6,   // Cincinnati Bengals
-      5: 7,   // Cleveland Browns
-      23: 8,  // Pittsburgh Steelers
+      2: 3,   // Baltimore Ravens -> Baltimore Ravens (id 3)
+      4: 7,   // Cincinnati Bengals -> Cincinnati Bengals (id 7)
+      5: 8,   // Cleveland Browns -> Cleveland Browns (id 8)
+      23: 27, // Pittsburgh Steelers -> Pittsburgh Steelers (id 27)
       
       // AFC South
-      34: 9,  // Houston Texans
-      11: 10, // Indianapolis Colts
-      30: 11, // Jacksonville Jaguars
-      10: 12, // Tennessee Titans
+      34: 13, // Houston Texans -> Houston Texans (id 13)
+      11: 14, // Indianapolis Colts -> Indianapolis Colts (id 14)
+      30: 15, // Jacksonville Jaguars -> Jacksonville Jaguars (id 15)
+      10: 31, // Tennessee Titans -> Tennessee Titans (id 31)
       
       // AFC West
-      7: 13,  // Denver Broncos
-      12: 14, // Kansas City Chiefs
-      13: 15, // Las Vegas Raiders
-      24: 16, // Los Angeles Chargers
+      7: 10,  // Denver Broncos -> Denver Broncos (id 10)
+      12: 16, // Kansas City Chiefs -> Kansas City Chiefs (id 16)
+      13: 17, // Las Vegas Raiders -> Las Vegas Raiders (id 17)
+      24: 18, // Los Angeles Chargers -> Los Angeles Chargers (id 18)
       
       // NFC East
-      6: 17,  // Dallas Cowboys
-      19: 18, // New York Giants
-      21: 19, // Philadelphia Eagles
-      28: 20, // Washington Commanders
+      6: 9,   // Dallas Cowboys -> Dallas Cowboys (id 9)
+      19: 24, // New York Giants -> New York Giants (id 24)
+      21: 26, // Philadelphia Eagles -> Philadelphia Eagles (id 26)
+      28: 32, // Washington Commanders -> Washington Commanders (id 32)
       
       // NFC North
-      3: 21,  // Chicago Bears
-      8: 22,  // Detroit Lions
-      9: 23,  // Green Bay Packers
-      16: 24, // Minnesota Vikings
+      3: 6,   // Chicago Bears -> Chicago Bears (id 6)
+      8: 11,  // Detroit Lions -> Detroit Lions (id 11)
+      9: 12,  // Green Bay Packers -> Green Bay Packers (id 12)
+      16: 21, // Minnesota Vikings -> Minnesota Vikings (id 21)
       
       // NFC South
-      1: 25,  // Atlanta Falcons
-      29: 26, // Carolina Panthers
-      18: 27, // New Orleans Saints
-      27: 28, // Tampa Bay Buccaneers
+      1: 2,   // Atlanta Falcons -> Atlanta Falcons (id 2)
+      29: 5,  // Carolina Panthers -> Carolina Panthers (id 5)
+      18: 23, // New Orleans Saints -> New Orleans Saints (id 23)
+      27: 30, // Tampa Bay Buccaneers -> Tampa Bay Buccaneers (id 30)
       
       // NFC West
-      22: 29, // Arizona Cardinals
-      25: 30, // Los Angeles Rams
-      26: 31, // San Francisco 49ers
-      14: 32  // Seattle Seahawks
+      22: 1,  // Arizona Cardinals -> Arizona Cardinals (id 1)
+      25: 19, // Los Angeles Rams -> Los Angeles Rams (id 19)
+      26: 28, // San Francisco 49ers -> San Francisco 49ers (id 28)
+      14: 29  // Seattle Seahawks -> Seattle Seahawks (id 29)
     };
   }
 
