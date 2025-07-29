@@ -47,8 +47,10 @@ router.get('/reddit', (req, res) => {
 router.get('/reddit/callback', async (req, res) => {
   try {
     const { code, state } = req.query;
+    console.log('OAuth callback received:', { code: !!code, state, query: req.query });
     
     if (!code) {
+      console.log('No code received, redirecting with access_denied error');
       return res.redirect(`${process.env.CLIENT_URL}?error=access_denied`);
     }
 
@@ -106,6 +108,9 @@ router.get('/reddit/callback', async (req, res) => {
       process.env.JWT_SECRET,
       { expiresIn: '7d' }
     );
+
+    console.log('OAuth successful, redirecting with token for user:', user.username);
+    console.log('Redirect URL:', `${process.env.CLIENT_URL}/auth/success?token=${token.substring(0, 20)}...`);
 
     // Redirect to frontend with token
     res.redirect(`${process.env.CLIENT_URL}/auth/success?token=${token}`);
