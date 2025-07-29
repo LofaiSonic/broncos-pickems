@@ -2684,6 +2684,73 @@ app.get('/api/games/season/:seasonType/week/:week', async (req, res) => {
   }
 });
 
+// Admin endpoint to clear all games (for reimporting correct data)
+app.post('/api/admin/clear-games', async (req, res) => {
+  try {
+    console.log('🗑️ Admin clearing all games...');
+    
+    // Delete all picks first (foreign key constraint)
+    await db.query('DELETE FROM picks');
+    console.log('Deleted all picks');
+    
+    // Delete all games
+    const result = await db.query('DELETE FROM games');
+    const deletedCount = result.rowCount;
+    
+    console.log(`✅ Cleared ${deletedCount} games from database`);
+    
+    res.json({
+      success: true,
+      message: `Successfully cleared ${deletedCount} games and all picks`,
+      deletedGames: deletedCount
+    });
+    
+  } catch (error) {
+    console.error('❌ Error clearing games:', error.message);
+    res.status(500).json({ error: 'Failed to clear games', details: error.message });
+  }
+});
+
+// Admin endpoint to import 2025 preseason games
+app.post('/api/admin/import-preseason', async (req, res) => {
+  try {
+    console.log('🏈 Admin importing preseason games...');
+    
+    const nfl2025Api = require('./services/nfl2025Api');
+    const result = await nfl2025Api.importPreseasonGames();
+    
+    res.json({
+      success: true,
+      message: `Successfully imported ${result} preseason games`,
+      gamesImported: result
+    });
+    
+  } catch (error) {
+    console.error('❌ Error importing preseason games:', error.message);
+    res.status(500).json({ error: 'Failed to import preseason games', details: error.message });
+  }
+});
+
+// Admin endpoint to import 2025 regular season games
+app.post('/api/admin/import-regular-season', async (req, res) => {
+  try {
+    console.log('🏈 Admin importing regular season games...');
+    
+    const nfl2025Api = require('./services/nfl2025Api');
+    const result = await nfl2025Api.importRegularSeasonGames();
+    
+    res.json({
+      success: true,
+      message: `Successfully imported ${result} regular season games`,
+      gamesImported: result
+    });
+    
+  } catch (error) {
+    console.error('❌ Error importing regular season games:', error.message);
+    res.status(500).json({ error: 'Failed to import regular season games', details: error.message });
+  }
+});
+
 // Start the server and initialize automatic updates
 const server = app.listen(PORT, async () => {
   console.log(`🏈 Minimal Broncos Server running on port ${PORT}`);
