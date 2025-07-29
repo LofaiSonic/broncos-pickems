@@ -412,18 +412,18 @@ app.get('/api/test/injuries/:teamId', async (req, res) => {
       SELECT injury_id, player_name, position, status, short_comment, long_comment,
              injury_type, injury_location, injury_detail, side, return_date,
              fantasy_status, injury_date, type_abbreviation
-      FROM detailed_injuries 
+      FROM injury_reports 
       WHERE team_id = $1 
-        AND status IN ('Out', 'Questionable', 'Doubtful', 'Probable')
+        AND injury_status IN ('Out', 'Questionable', 'Doubtful', 'Probable')
       ORDER BY 
-        CASE status 
+        CASE injury_status 
           WHEN 'Out' THEN 1
           WHEN 'Doubtful' THEN 2  
           WHEN 'Questionable' THEN 3
           WHEN 'Probable' THEN 4
           ELSE 5
         END,
-        injury_date DESC
+        created_at DESC
       LIMIT 10
     `, [teamId]);
     
@@ -480,36 +480,36 @@ app.get('/api/test/games/week/:week', async (req, res) => {
             SELECT injury_id, player_name, position, status, short_comment, long_comment,
                    injury_type, injury_location, injury_detail, side, return_date,
                    fantasy_status, injury_date, type_abbreviation
-            FROM detailed_injuries 
+            FROM injury_reports 
             WHERE team_id = $1 
-              AND status IN ('Out', 'Questionable', 'Doubtful', 'Probable')
+              AND injury_status IN ('Out', 'Questionable', 'Doubtful', 'Probable')
             ORDER BY 
-              CASE status 
+              CASE injury_status 
                 WHEN 'Out' THEN 1
                 WHEN 'Doubtful' THEN 2  
                 WHEN 'Questionable' THEN 3
                 WHEN 'Probable' THEN 4
                 ELSE 5
               END,
-              injury_date DESC
+              created_at DESC
             LIMIT 10
           `, [game.home_team_id]),
           db.query(`
             SELECT injury_id, player_name, position, status, short_comment, long_comment,
                    injury_type, injury_location, injury_detail, side, return_date,
                    fantasy_status, injury_date, type_abbreviation
-            FROM detailed_injuries 
+            FROM injury_reports 
             WHERE team_id = $1 
-              AND status IN ('Out', 'Questionable', 'Doubtful', 'Probable')
+              AND injury_status IN ('Out', 'Questionable', 'Doubtful', 'Probable')
             ORDER BY 
-              CASE status 
+              CASE injury_status 
                 WHEN 'Out' THEN 1
                 WHEN 'Doubtful' THEN 2  
                 WHEN 'Questionable' THEN 3
                 WHEN 'Probable' THEN 4
                 ELSE 5
               END,
-              injury_date DESC
+              created_at DESC
             LIMIT 10
           `, [game.away_team_id])
         ]);
@@ -634,36 +634,36 @@ app.get('/api/games/week/:week/picks', async (req, res) => {
             SELECT injury_id, player_name, position, status, short_comment, long_comment,
                    injury_type, injury_location, injury_detail, side, return_date,
                    fantasy_status, injury_date, type_abbreviation
-            FROM detailed_injuries 
+            FROM injury_reports 
             WHERE team_id = $1 
-              AND status IN ('Out', 'Questionable', 'Doubtful', 'Probable')
+              AND injury_status IN ('Out', 'Questionable', 'Doubtful', 'Probable')
             ORDER BY 
-              CASE status 
+              CASE injury_status 
                 WHEN 'Out' THEN 1
                 WHEN 'Doubtful' THEN 2  
                 WHEN 'Questionable' THEN 3
                 WHEN 'Probable' THEN 4
                 ELSE 5
               END,
-              injury_date DESC
+              created_at DESC
             LIMIT 10
           `, [game.home_team_id]),
           db.query(`
             SELECT injury_id, player_name, position, status, short_comment, long_comment,
                    injury_type, injury_location, injury_detail, side, return_date,
                    fantasy_status, injury_date, type_abbreviation
-            FROM detailed_injuries 
+            FROM injury_reports 
             WHERE team_id = $1 
-              AND status IN ('Out', 'Questionable', 'Doubtful', 'Probable')
+              AND injury_status IN ('Out', 'Questionable', 'Doubtful', 'Probable')
             ORDER BY 
-              CASE status 
+              CASE injury_status 
                 WHEN 'Out' THEN 1
                 WHEN 'Doubtful' THEN 2  
                 WHEN 'Questionable' THEN 3
                 WHEN 'Probable' THEN 4
                 ELSE 5
               END,
-              injury_date DESC
+              created_at DESC
             LIMIT 10
           `, [game.away_team_id])
         ]);
