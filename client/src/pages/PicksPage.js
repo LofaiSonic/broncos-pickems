@@ -15,9 +15,20 @@ const PicksPage = () => {
   // Modal state - default to closed, opens when user clicks "Make Your Picks"
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalGameIndex, setModalGameIndex] = useState(0);
+  const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 768);
   
   // Ref for week navigation scroll container
   const weekScrollRef = useRef(null);
+
+  // Handle window resize
+  useEffect(() => {
+    const handleResize = () => {
+      setIsDesktop(window.innerWidth >= 768);
+    };
+    
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const fetchGamesAndPicks = useCallback(async () => {
     try {
@@ -305,9 +316,9 @@ const PicksPage = () => {
       <div className="mb-lg mt-xl">
         <div 
           ref={weekScrollRef}
-          className="flex gap-sm pb-2 mb-4 week-selector-scroll"
+          className={`flex gap-2 pb-2 mb-4 ${isDesktop ? 'justify-center flex-wrap' : 'week-selector-scroll'}`}
           style={{
-            overflowX: 'auto',
+            overflowX: isDesktop ? 'visible' : 'auto',
             scrollBehavior: 'smooth',
             WebkitOverflowScrolling: 'touch',
             paddingTop: '1rem',
@@ -325,10 +336,11 @@ const PicksPage = () => {
                   : 'btn-outline'
               }`}
               style={{
-                minWidth: '120px',
-                flexShrink: 0,
+                minWidth: isDesktop && seasonType === 2 ? '60px' : '120px',
+                flexShrink: isDesktop ? 1 : 0,
                 whiteSpace: 'nowrap',
-                padding: '12px 20px'
+                padding: isDesktop && seasonType === 2 ? '8px 10px' : '12px 20px',
+                fontSize: isDesktop && seasonType === 2 ? '0.8rem' : '1rem'
               }}
             >
               {week.label}
@@ -336,13 +348,8 @@ const PicksPage = () => {
           ))}
         </div>
         {/* Mobile scroll hint */}
-        {seasonType === 2 && (
-          <div 
-            className="text-center text-sm text-gray-500"
-            style={{
-              display: window.innerWidth < 768 ? 'block' : 'none'
-            }}
-          >
+        {seasonType === 2 && !isDesktop && (
+          <div className="text-center text-sm text-gray-500">
             ← Swipe to see more weeks →
           </div>
         )}

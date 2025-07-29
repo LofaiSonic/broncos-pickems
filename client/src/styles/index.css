@@ -62,29 +62,30 @@ body {
   overflow-x: auto;
 }
 
-/* Custom scrollbar styles for week selector */
-.week-selector-scroll::-webkit-scrollbar {
-  height: 8px;
-}
+/* Custom scrollbar styles for week selector - mobile only */
+@media (max-width: 767px) {
+  .week-selector-scroll::-webkit-scrollbar {
+    height: 6px;
+  }
 
-.week-selector-scroll::-webkit-scrollbar-track {
-  background: #f1f1f1;
-  border-radius: 4px;
-}
+  .week-selector-scroll::-webkit-scrollbar-track {
+    background: transparent;
+  }
 
-.week-selector-scroll::-webkit-scrollbar-thumb {
-  background: var(--broncos-orange);
-  border-radius: 4px;
-}
+  .week-selector-scroll::-webkit-scrollbar-thumb {
+    background: rgba(0, 20, 137, 0.3);
+    border-radius: 3px;
+  }
 
-.week-selector-scroll::-webkit-scrollbar-thumb:hover {
-  background: var(--broncos-blue);
-}
+  .week-selector-scroll::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 20, 137, 0.5);
+  }
 
-/* Firefox scrollbar */
-.week-selector-scroll {
-  scrollbar-width: thin;
-  scrollbar-color: var(--broncos-orange) #f1f1f1;
+  /* Firefox scrollbar */
+  .week-selector-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0, 20, 137, 0.3) transparent;
+  }
 }
 
 /* Fix link styling issues */
