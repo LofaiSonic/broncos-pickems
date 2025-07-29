@@ -409,9 +409,9 @@ app.get('/api/test/injuries/:teamId', async (req, res) => {
     const teamId = parseInt(req.params.teamId);
     
     const result = await db.query(`
-      SELECT injury_id, player_name, position, status, short_comment, long_comment,
-             injury_type, injury_location, injury_detail, side, return_date,
-             fantasy_status, injury_date, type_abbreviation
+      SELECT player_name, position, injury_status as status, injury_description as short_comment,
+             injury_description as long_comment, created_at
+             
       FROM injury_reports 
       WHERE team_id = $1 
         AND injury_status IN ('Out', 'Questionable', 'Doubtful', 'Probable')
@@ -477,9 +477,9 @@ app.get('/api/test/games/week/:week', async (req, res) => {
         // Fetch detailed injury data for both teams from database
         const [homeInjuriesResult, awayInjuriesResult] = await Promise.all([
           db.query(`
-            SELECT injury_id, player_name, position, status, short_comment, long_comment,
-                   injury_type, injury_location, injury_detail, side, return_date,
-                   fantasy_status, injury_date, type_abbreviation
+            SELECT player_name, position, injury_status as status, injury_description as short_comment,
+                   injury_description as long_comment, created_at
+                   
             FROM injury_reports 
             WHERE team_id = $1 
               AND injury_status IN ('Out', 'Questionable', 'Doubtful', 'Probable')
@@ -495,9 +495,9 @@ app.get('/api/test/games/week/:week', async (req, res) => {
             LIMIT 10
           `, [game.home_team_id]),
           db.query(`
-            SELECT injury_id, player_name, position, status, short_comment, long_comment,
-                   injury_type, injury_location, injury_detail, side, return_date,
-                   fantasy_status, injury_date, type_abbreviation
+            SELECT player_name, position, injury_status as status, injury_description as short_comment,
+                   injury_description as long_comment, created_at
+                   
             FROM injury_reports 
             WHERE team_id = $1 
               AND injury_status IN ('Out', 'Questionable', 'Doubtful', 'Probable')
@@ -631,9 +631,9 @@ app.get('/api/games/week/:week/picks', async (req, res) => {
         // Fetch detailed injury data for both teams from database
         const [homeInjuriesResult, awayInjuriesResult] = await Promise.all([
           db.query(`
-            SELECT injury_id, player_name, position, status, short_comment, long_comment,
-                   injury_type, injury_location, injury_detail, side, return_date,
-                   fantasy_status, injury_date, type_abbreviation
+            SELECT player_name, position, injury_status as status, injury_description as short_comment,
+                   injury_description as long_comment, created_at
+                   
             FROM injury_reports 
             WHERE team_id = $1 
               AND injury_status IN ('Out', 'Questionable', 'Doubtful', 'Probable')
@@ -649,9 +649,9 @@ app.get('/api/games/week/:week/picks', async (req, res) => {
             LIMIT 10
           `, [game.home_team_id]),
           db.query(`
-            SELECT injury_id, player_name, position, status, short_comment, long_comment,
-                   injury_type, injury_location, injury_detail, side, return_date,
-                   fantasy_status, injury_date, type_abbreviation
+            SELECT player_name, position, injury_status as status, injury_description as short_comment,
+                   injury_description as long_comment, created_at
+                   
             FROM injury_reports 
             WHERE team_id = $1 
               AND injury_status IN ('Out', 'Questionable', 'Doubtful', 'Probable')
