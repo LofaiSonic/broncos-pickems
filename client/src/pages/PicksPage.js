@@ -164,6 +164,7 @@ const PicksPage = () => {
       day: 'numeric',
       hour: 'numeric',
       minute: '2-digit',
+      timeZone: 'America/New_York',
       timeZoneName: 'short'
     });
   };
@@ -173,7 +174,8 @@ const PicksPage = () => {
       weekday: 'long',
       month: 'long',
       day: 'numeric',
-      year: 'numeric'
+      year: 'numeric',
+      timeZone: 'America/New_York'
     });
   };
 
@@ -181,6 +183,7 @@ const PicksPage = () => {
     return new Date(gameTime).toLocaleTimeString('en-US', {
       hour: 'numeric',
       minute: '2-digit',
+      timeZone: 'America/New_York',
       timeZoneName: 'short'
     });
   };
