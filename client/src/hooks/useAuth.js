@@ -26,10 +26,13 @@ export const AuthProvider = ({ children }) => {
 
   const fetchUser = useCallback(async () => {
     try {
+      console.log('fetchUser: Starting user fetch');
+      console.log('fetchUser: Authorization header:', axios.defaults.headers.common['Authorization']);
       const response = await axios.get('/api/auth/me');
+      console.log('fetchUser: User data received:', response.data);
       setUser(response.data);
     } catch (error) {
-      console.error('Error fetching user:', error);
+      console.error('fetchUser: Error fetching user:', error.response?.data || error.message);
       logout(); // Clear invalid token
     } finally {
       setLoading(false);
@@ -49,9 +52,17 @@ export const AuthProvider = ({ children }) => {
   }, [fetchUser]);
 
   const login = (token) => {
-    localStorage.setItem('token', token);
-    axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-    fetchUser();
+    try {
+      console.log('useAuth: Attempting to save token');
+      localStorage.setItem('token', token);
+      const savedToken = localStorage.getItem('token');
+      console.log('useAuth: Token saved?', savedToken === token);
+      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      console.log('useAuth: Fetching user data');
+      fetchUser();
+    } catch (error) {
+      console.error('useAuth: Error during login:', error);
+    }
   };
 
   const loginWithReddit = () => {
