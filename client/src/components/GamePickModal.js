@@ -562,7 +562,25 @@ const GamePickModal = ({
                   ${currentGame.spread ? `
                     <div class="odds-item">
                       <span class="odds-label">Spread:</span>
-                      <span class="odds-value">${currentGame.spread > 0 ? `${currentGame.awayTeam.abbreviation} +${currentGame.spread}` : `${currentGame.homeTeam.abbreviation} ${currentGame.spread}`}</span>
+                      <span class="odds-value">
+                        ${currentGame.spread < 0 ? 
+                          `${currentGame.homeTeam.abbreviation} ${currentGame.spread}` : 
+                          currentGame.spread > 0 ? 
+                            `${currentGame.homeTeam.abbreviation} +${currentGame.spread}` : 
+                            'EVEN'
+                        }
+                      </span>
+                    </div>
+                    <div class="odds-item">
+                      <span class="odds-label">Favorite:</span>
+                      <span class="odds-value" style="font-weight: bold; color: ${currentGame.spread < 0 ? currentGame.homeTeam.color : currentGame.spread > 0 ? currentGame.awayTeam.color : '#666'};">
+                        ${currentGame.spread < 0 ? 
+                          `${currentGame.homeTeam.abbreviation} by ${Math.abs(currentGame.spread)}` : 
+                          currentGame.spread > 0 ? 
+                            `${currentGame.awayTeam.abbreviation} by ${Math.abs(currentGame.spread)}` : 
+                            'Pick\'em'
+                        }
+                      </span>
                     </div>
                   ` : ''}
                   ${currentGame.overUnder ? `
