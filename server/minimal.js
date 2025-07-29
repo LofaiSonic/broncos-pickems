@@ -2751,6 +2751,57 @@ app.post('/api/admin/import-regular-season', async (req, res) => {
   }
 });
 
+// Admin endpoint to import games from CSV data (for copying from dev to prod)
+app.post('/api/admin/import-games-csv', async (req, res) => {
+  try {
+    console.log('📋 Admin importing games from CSV data...');
+    
+    const { games } = req.body;
+    if (!games || !Array.isArray(games)) {
+      return res.status(400).json({ error: 'Invalid games data' });
+    }
+    
+    // Clear existing games first
+    await db.query('DELETE FROM picks');
+    await db.query('DELETE FROM games');
+    console.log('Cleared existing games and picks');
+    
+    let importedCount = 0;
+    
+    // Import each game
+    for (const game of games) {
+      try {
+        await db.query(`
+          INSERT INTO games (
+            season_id, week, season_type, season_year, espn_game_id,
+            home_team_id, away_team_id, game_time, home_score, away_score,
+            is_final, spread, over_under, home_team_record, away_team_record
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+        `, [
+          game.season_id, game.week, game.season_type, game.season_year, game.espn_game_id,
+          game.home_team_id, game.away_team_id, game.game_time, game.home_score, game.away_score,
+          game.is_final, game.spread, game.over_under, game.home_team_record, game.away_team_record
+        ]);
+        importedCount++;
+      } catch (gameError) {
+        console.error(`Error importing game:`, gameError.message);
+      }
+    }
+    
+    console.log(`✅ Imported ${importedCount} games from CSV data`);
+    
+    res.json({
+      success: true,
+      message: `Successfully imported ${importedCount} games from CSV data`,
+      gamesImported: importedCount
+    });
+    
+  } catch (error) {
+    console.error('❌ Error importing games from CSV:', error.message);
+    res.status(500).json({ error: 'Failed to import games from CSV', details: error.message });
+  }
+});
+
 // Start the server and initialize automatic updates
 const server = app.listen(PORT, async () => {
   console.log(`🏈 Minimal Broncos Server running on port ${PORT}`);
