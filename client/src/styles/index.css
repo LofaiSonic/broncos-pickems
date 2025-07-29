@@ -40,13 +40,14 @@
 }
 
 html {
-  overflow-x: hidden;
+  overflow-x: auto;
   width: 100%;
 }
 
 #root {
-  overflow-x: hidden;
+  overflow-x: auto;
   width: 100%;
+  min-height: 100vh;
 }
 
 body {
@@ -58,7 +59,32 @@ body {
   background-color: var(--broncos-cream);
   color: var(--broncos-blue);
   line-height: 1.6;
-  overflow-x: hidden;
+  overflow-x: auto;
+}
+
+/* Custom scrollbar styles for week selector */
+.week-selector-scroll::-webkit-scrollbar {
+  height: 8px;
+}
+
+.week-selector-scroll::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.week-selector-scroll::-webkit-scrollbar-thumb {
+  background: var(--broncos-orange);
+  border-radius: 4px;
+}
+
+.week-selector-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--broncos-blue);
+}
+
+/* Firefox scrollbar */
+.week-selector-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--broncos-orange) #f1f1f1;
 }
 
 /* Fix link styling issues */

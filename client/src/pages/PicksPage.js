@@ -233,7 +233,7 @@ const PicksPage = () => {
 
   // Function to scroll selected week into view
   const scrollToSelectedWeek = (weekValue) => {
-    if (weekScrollRef.current && window.innerWidth < 768) {
+    if (weekScrollRef.current) {
       const selectedButton = weekScrollRef.current.querySelector(`button[data-week="${weekValue}"]`);
       if (selectedButton) {
         selectedButton.scrollIntoView({
@@ -267,7 +267,7 @@ const PicksPage = () => {
   }
 
   return (
-    <div className="container mx-auto mt-lg px-2 sm:px-4" style={{ maxWidth: '100%', overflowX: 'hidden' }}>
+    <div className="container mx-auto mt-lg px-2 sm:px-4" style={{ maxWidth: '100%' }}>
       <div className="mb-lg">
         <h1 className="text-2xl font-bold mb-sm">
           {getWeekDisplayName(currentWeek, seasonType)} Picks
@@ -305,15 +305,13 @@ const PicksPage = () => {
       <div className="mb-lg mt-xl">
         <div 
           ref={weekScrollRef}
-          className="flex gap-sm pb-2 mb-4"
+          className="flex gap-sm pb-2 mb-4 week-selector-scroll"
           style={{
             overflowX: 'auto',
             scrollBehavior: 'smooth',
             WebkitOverflowScrolling: 'touch',
-            scrollbarWidth: 'none',
-            msOverflowStyle: 'none',
-            justifyContent: window.innerWidth >= 768 ? 'center' : 'flex-start',
-            paddingTop: '1rem'
+            paddingTop: '1rem',
+            paddingBottom: '0.5rem'
           }}
         >
           {getAvailableWeeks(seasonType).map((week) => (
