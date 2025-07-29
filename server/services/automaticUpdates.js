@@ -106,7 +106,7 @@ class AutomaticUpdateService {
           const injuryRefs = response.data?.items || [];
           
           // Clear existing injuries for this team  
-          await db.query('DELETE FROM detailed_injuries WHERE team_id = $1', [dbTeamId]);
+          await db.query('DELETE FROM injury_reports WHERE team_id = $1', [dbTeamId]);
           
           // Process injury references (limit to 15 for performance)
           const limitedRefs = injuryRefs.slice(0, 15);
@@ -131,37 +131,17 @@ class AutomaticUpdateService {
                 }
               }
               
-              // Insert detailed injury data
+              // Insert injury data into injury_reports table
               await db.query(`
-                INSERT INTO detailed_injuries (
-                  injury_id, player_id, team_id, player_name, position, status,
-                  short_comment, long_comment, injury_type, injury_location,
-                  injury_detail, side, return_date, fantasy_status, injury_date, type_abbreviation
-                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
-                ON CONFLICT (injury_id) DO UPDATE SET
-                  status = EXCLUDED.status,
-                  short_comment = EXCLUDED.short_comment,
-                  long_comment = EXCLUDED.long_comment,
-                  return_date = EXCLUDED.return_date,
-                  fantasy_status = EXCLUDED.fantasy_status,
-                  updated_at = CURRENT_TIMESTAMP
+                INSERT INTO injury_reports (
+                  team_id, player_name, position, injury_status, injury_description
+                ) VALUES ($1, $2, $3, $4, $5)
               `, [
-                injuryData.id,
-                injuryData.athlete?.$ref?.split('/').slice(-1)[0] || null,
                 dbTeamId,
                 playerName,
                 position,
                 injuryData.status || 'Unknown',
-                injuryData.shortComment || '',
-                injuryData.longComment || '',
-                injuryData.details?.type || 'Unknown',
-                injuryData.details?.location || 'Unknown',
-                injuryData.details?.detail || 'Not Specified',
-                injuryData.details?.side || 'Not Specified',
-                injuryData.details?.returnDate || null,
-                injuryData.details?.fantasyStatus?.description || null,
-                injuryData.date,
-                injuryData.type?.abbreviation || 'O'
+                injuryData.shortComment || injuryData.longComment || 'Injury reported'
               ]);
               totalUpdates++;
               
